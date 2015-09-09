@@ -1,0 +1,12 @@
+{application, skur,
+ [
+  {description, ""},
+  {vsn, "1"},
+  {registered, []},
+  {applications, [
+                  kernel,
+                  stdlib
+                 ]},
+  {mod, { skur_app, []}},
+  {env, []}
+ ]}.
