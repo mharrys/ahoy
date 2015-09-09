@@ -33,3 +33,7 @@ decode_dict_test() ->
     {dict, D2} = bdecode:decode(<<"d3:food12:foobarfoobari42eee">>),
     {ok, {dict, D3}} = orddict:find(<<"foo">>, D2),
     ?assertEqual({ok, 42}, orddict:find(<<"foobarfoobar">>, D3)).
+
+raw_test() ->
+    D = <<"d3:food12:foobarfoobari42eee">>,
+    ?assertEqual({ok, <<"d12:foobarfoobari42ee">>}, bdecode:raw(D, <<"foo">>)).
