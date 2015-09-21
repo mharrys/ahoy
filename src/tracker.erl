@@ -20,7 +20,7 @@ init([Meta, InfoHash, PeerId, Port, Up, Down, Left]) ->
     gen_server:cast(self(), update),
     Url = io_lib:format("~s?info_hash=~s&peer_id=~s&port=~b&compact=1",
         [ Meta#metainfo.announce
-        , urlencode(InfoHash)
+        , skur_util:encode_url(InfoHash)
         , PeerId
         , Port
         ]),
@@ -54,31 +54,6 @@ handle_cast(_Msg, State) ->
 
 handle_info(_Info, State) ->
     {noreply, State}.
-
-create_url(Url, Parameters) ->
-    create_url(Url, Parameters, "").
-create_url(Url, [], Acc) ->
-    Url ++ "?" ++ Acc;
-create_url(Url, [{Key, Value}|Parameters], Acc) when is_integer(Value) ->
-    NewAcc = Acc ++ http_uri:encode(Key) ++ "=" ++ integer_to_list(Value) ++ "&",
-    create_url(Url, Parameters, NewAcc);
-create_url(Url, [{Key, Value}|Parameters], Acc) when is_binary(Value) ->
-    NewAcc = Acc ++ http_uri:encode(Key) ++ "=" ++ urlencode(Value) ++ "&",
-    create_url(Url, Parameters, NewAcc);
-create_url(Url, [{Key, Value}|Parameters], Acc) ->
-    NewAcc = Acc ++ http_uri:encode(Key) ++ "=" ++ http_uri:encode(Value) ++ "&",
-    create_url(Url, Parameters, NewAcc).
-
-urlencode(Bytes) ->
-    urlencode(Bytes, "").
-urlencode(<<>>, Acc) ->
-    Acc;
-urlencode(<<Byte:8, Rest/binary>>, Acc) when Byte < 16 ->
-    urlencode(Rest, Acc ++ [$%|[$0|integer_to_list(Byte, 16)]]);
-urlencode(<<Byte:8, Rest/binary>>, Acc) when Byte < 32; Byte >= 126; Byte == 92 ->
-    urlencode(Rest, Acc ++ [$%|integer_to_list(Byte, 16)]);
-urlencode(<<Byte:8, Rest/binary>>, Acc) ->
-    urlencode(Rest, Acc ++ [Byte]).
 
 read_peers(Bytes) ->
     read_peers(Bytes, []).
