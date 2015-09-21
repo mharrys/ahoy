@@ -1,5 +1,5 @@
 -module(tracker).
--export([start_link/7]).
+-export([start_link/7, get_peers/4]).
 -behaviour(gen_server).
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2, terminate/2, code_change/3]).
 -include_lib("skur/include/metainfo.hrl").
@@ -15,6 +15,9 @@
 
 start_link(Meta, InfoHash, PeerId, Port, Up, Down, Left) ->
     gen_server:start_link(?MODULE, [Meta, InfoHash, PeerId, Port, Up, Down, Left], []).
+
+get_peers(Pid, Up, Down, Left) ->
+    gen_server:call(Pid, {get_peers, Up, Down, Left}).
 
 init([Meta, InfoHash, PeerId, Port, Up, Down, Left]) ->
     gen_server:cast(self(), update),
