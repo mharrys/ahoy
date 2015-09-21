@@ -4,10 +4,7 @@
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2, terminate/2, code_change/3]).
 -include_lib("skur/include/metainfo.hrl").
 -include_lib("skur/include/peer.hrl").
--record(state, { metainfo
-               , peer_id
-               , port
-               , info_hash
+-record(state, { url
                , peers = []
                , complete
                , incomplete
@@ -21,8 +18,13 @@ start_link(Meta, InfoHash, PeerId, Port, Up, Down, Left) ->
 
 init([Meta, InfoHash, PeerId, Port, Up, Down, Left]) ->
     gen_server:cast(self(), update),
-    {ok, #state{metainfo = Meta, peer_id = PeerId, info_hash = InfoHash,
-                port = Port, left = Left, uploaded = Up, downloaded = Down}}.
+    Url = io_lib:format("~s?info_hash=~s&peer_id=~s&port=~b&compact=1",
+        [ Meta#metainfo.announce
+        , urlencode(InfoHash)
+        , PeerId
+        , Port
+        ]),
+    {ok, #state{url = Url, left = Left, uploaded = Up, downloaded = Down}}.
 
 handle_call({get_peers, Up, Down, Left}, _From, State) ->
     NewState = State#state{uploaded = Up, downloaded = Down, left = Left},
@@ -31,14 +33,12 @@ handle_call(_Request, _From, State) ->
     {reply, {error, unknown_call}, State}.
 
 handle_cast(update, State) ->
-    Url = create_url(State#state.metainfo#metainfo.announce,
-        [{"info_hash", State#state.info_hash},
-         {"peer_id", State#state.peer_id},
-         {"port", State#state.port},
-         {"uploaded", State#state.uploaded},
-         {"downloaded", State#state.downloaded},
-         {"left", State#state.left},
-         {"compact", 1}, {"no_peer_id", 1}]),
+    Url = lists:flatten(io_lib:format("~s&uploaded=~b&downloaded=~b&left=~b",
+        [ State#state.url
+        , State#state.uploaded
+        , State#state.downloaded
+        , State#state.left
+        ])),
     {ok, {_, _, Body}} = httpc:request(Url),
     {dict, Resp} = bdecode:decode(list_to_binary(Body)),
     {_, RawPeers} = lists:keyfind(<<"peers">>, 1, Resp),
@@ -75,7 +75,7 @@ urlencode(<<>>, Acc) ->
     Acc;
 urlencode(<<Byte:8, Rest/binary>>, Acc) when Byte < 16 ->
     urlencode(Rest, Acc ++ [$%|[$0|integer_to_list(Byte, 16)]]);
-urlencode(<<Byte:8, Rest/binary>>, Acc) when Byte < 32; Byte >= 127 ->
+urlencode(<<Byte:8, Rest/binary>>, Acc) when Byte < 32; Byte >= 126; Byte == 92 ->
     urlencode(Rest, Acc ++ [$%|integer_to_list(Byte, 16)]);
 urlencode(<<Byte:8, Rest/binary>>, Acc) ->
     urlencode(Rest, Acc ++ [Byte]).
