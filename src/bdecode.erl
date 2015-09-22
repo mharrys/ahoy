@@ -20,10 +20,10 @@ decode_type(<<$d, T/binary>>) ->
 decode_type(Bin) ->
     decode_string(Bin, []).
 
-decode_int(<<$e, Rest/binary>>, Acc) ->
+decode_int(<<$e, T/binary>>, Acc) ->
     Digits = lists:reverse(Acc),
     N = list_to_integer(Digits),
-    {N, Rest};
+    {N, T};
 decode_int(<<H, T/binary>>, Acc) ->
     decode_int(T, [H|Acc]).
 
