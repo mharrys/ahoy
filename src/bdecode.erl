@@ -1,6 +1,6 @@
 -module(bdecode).
 
--export([decode/1, raw/2]).
+-export([decode/1]).
 
 %% Return decoded data from a file.
 decode(Path) when is_list(Path) ->
@@ -10,28 +10,6 @@ decode(Path) when is_list(Path) ->
 decode(Bin) when is_binary(Bin) ->
     {Value, _} = decode_type(Bin),
     Value.
-
-%% Return raw bytes for a search key.
-raw(Path, Key) when is_list(Path) ->
-    {ok, Bin} = file:read_file(Path),
-    raw(Bin, Key);
-%% Reached the end, key not found
-raw(<<$d, $e>>, _Key) ->
-    erlang:error(not_found);
-%% Otherwise, see if this is the right key
-raw(<<$d, Bin/binary>>, Key) when bit_size(Bin) > 1 ->
-    {FoundKey, T} = decode_type(Bin),
-    {_, T2} = decode_type(T),
-    case FoundKey == Key of
-        true ->
-            SizeDiff = byte_size(T) - byte_size(T2),
-            <<Bytes:SizeDiff/binary, _/binary>> = T,
-            {ok, Bytes};
-        false ->
-            %% Add a $d to the binary to let the function
-            %% know it's still a dictionary
-            raw(<<$d, T2/binary>>, Key)
-    end.
 
 decode_type(<<$i, T/binary>>) ->
     decode_int(T, []);
