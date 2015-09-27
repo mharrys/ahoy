@@ -1,5 +1,6 @@
 %% Describes metainfo file structure for a torrent file
 -record(metainfo, {info,
+                   info_hash,
                    announce,
                    announce_list,
                    creation_date,

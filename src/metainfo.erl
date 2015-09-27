@@ -4,7 +4,7 @@
          single_file_mode/1,
          multiple_file_mode/1]).
 
--include("metainfo.hrl").
+-include_lib("skur/include/metainfo.hrl").
 
 %% Create a new metainfo structure from specified Path.
 new(Path) when is_list(Path) ->
@@ -22,7 +22,9 @@ multiple_file_mode(Meta) ->
 %% Parse metainfo file structure
 parse([{<<"info">>, {dict, Dict}}|T], Meta) ->
     Info = parse_info(Dict, #info{}),
-    parse(T, Meta#metainfo{info=Info});
+    Encoded = bencode:encode({dict, Dict}),
+    Hash = crypto:hash(sha, Encoded),
+    parse(T, Meta#metainfo{info=Info, info_hash=Hash});
 parse([{<<"announce">>, Bin}|T], Meta) ->
     Announce = binary:bin_to_list(Bin),
     parse(T, Meta#metainfo{announce=Announce});
