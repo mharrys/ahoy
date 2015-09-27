@@ -5,7 +5,9 @@
   {registered, []},
   {applications, [
                   kernel,
-                  stdlib
+                  stdlib,
+                  crypto,
+                  inets
                  ]},
   {mod, { skur_app, []}},
   {env, []}
