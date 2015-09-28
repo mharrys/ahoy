@@ -18,7 +18,7 @@ encode_handshake_test() ->
 
 decode_handshake_test() ->
     Invalid = <<"invalid">>,
-    ?assertEqual({unknown, Invalid}, peer_message:decode_handshake(Invalid)),
+    ?assertError(function_clause, peer_message:decode_handshake(Invalid)),
     PStrLen = 19,
     PStr = <<"BitTorrent protocol">>,
     Reserved = <<0:8/unit:8>>,
@@ -30,13 +30,13 @@ decode_handshake_test() ->
     Valid2 = <<Valid/binary, Tail/binary>>,
     ?assertEqual({{InfoHash, PeerId}, Tail}, peer_message:decode_handshake(Valid2)),
     Invalid2 = <<18, PStr/binary, Reserved/binary, InfoHash/binary, PeerId/binary>>,
-    ?assertEqual({unknown, Invalid2}, peer_message:decode_handshake(Invalid2)),
+    ?assertError(function_clause, peer_message:decode_handshake(Invalid2)),
     Invalid3 = <<PStrLen, "foobar", Reserved/binary, InfoHash/binary, PeerId/binary>>,
-    ?assertEqual({unknown, Invalid3}, peer_message:decode_handshake(Invalid3)),
+    ?assertError(function_clause, peer_message:decode_handshake(Invalid3)),
     Invalid4 = <<Invalid3/binary, Tail/binary>>,
-    ?assertEqual({unknown, Invalid4}, peer_message:decode_handshake(Invalid4)),
+    ?assertError(function_clause, peer_message:decode_handshake(Invalid4)),
     Invalid5 = <<PStrLen, PStr/binary, "foobar", InfoHash/binary, PeerId/binary>>,
-    ?assertEqual({unknown, Invalid5}, peer_message:decode_handshake(Invalid5)),
+    ?assertError(function_clause, peer_message:decode_handshake(Invalid5)),
     % valid in size, but invalid order (which we can't know)
     Valid3 = <<PStrLen, PStr/binary, Reserved/binary, PeerId/binary, InfoHash/binary>>,
     ?assertEqual({{PeerId, InfoHash}, <<>>}, peer_message:decode_handshake(Valid3)).
@@ -81,31 +81,28 @@ encode_cancel_test() ->
     ?assertEqual(<<0, 0, 0, 13, 8, 42:32, 13:32, 37:32>>, C2).
 
 decode_messages_no_payload_test() ->
-    ?assertEqual({[], <<>>}, peer_message:decode_messages(<<>>)),
-    ?assertEqual({[], <<"foobar">>}, peer_message:decode_messages(<<"foobar">>)),
-    ?assertEqual({[keep_alive], <<>>}, peer_message:decode_messages(<<0:32>>)),
-    ?assertEqual(
-        {[keep_alive], <<"foobar">>},
+    ?assertEqual([], peer_message:decode_messages(<<>>)),
+    ?assertError(function_clause, peer_message:decode_messages(<<"foobar">>)),
+    ?assertEqual([keep_alive], peer_message:decode_messages(<<0:32>>)),
+    ?assertError(
+        function_clause,
         peer_message:decode_messages(<<0:32, "foobar">>)),
-    ?assertEqual(
-        {[keep_alive], <<"foobar", 1:32, 2>>},
+    ?assertError(
+        function_clause,
         peer_message:decode_messages(<<0:32, "foobar", 1:32, 2>>)),
     ?assertEqual(
-        {[keep_alive, interested], <<"foobar">>},
-        peer_message:decode_messages(<<0:32, 1:32, 2, "foobar">>)).
+        [keep_alive, interested],
+        peer_message:decode_messages(<<0:32, 1:32, 2>>)).
 
 decode_messages_test() ->
     M = <<15:32, 7, 42:32, 1337:32, "foobarbaz">>,
+    ?assertError(function_clause, peer_message:decode_messages(M)),
+    M2 = <<1:32, 3, 13:32, 8, 1000:32, 2000:32, 3000:32>>,
     ?assertEqual(
-        {[{piece, 42, 1337, <<"foobar">>}], <<"baz">>},
-        peer_message:decode_messages(M)),
-    M2 = <<1:32, 3, 13:32, 8, 1000:32, 2000:32, 3000:32, 50:32>>,
-    ?assertEqual(
-        {[not_interested, {cancel, 1000, 2000, 3000}], <<50:32>>},
+        [not_interested, {cancel, 1000, 2000, 3000}],
         peer_message:decode_messages(M2)),
     M3 = <<5000:32, 42>>,
-    ?assertEqual({[], M3}, peer_message:decode_messages(M3)),
-    % valid length, but unknown id
+    ?assertError(function_clause, peer_message:decode_messages(M3)),
     M4 = <<1:32, 42>>,
     ?assertError(function_clause, peer_message:decode_messages(M4)).
 

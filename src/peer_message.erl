@@ -33,9 +33,7 @@ decode_handshake(<<19,
                    InfoHash:20/binary,
                    PeerId:20/binary,
                    T/binary>>) ->
-    {{InfoHash, PeerId}, T};
-decode_handshake(T) ->
-    {unknown, T}.
+    {{InfoHash, PeerId}, T}.
 
 encode_keep_alive() ->
     <<0:32>>.
@@ -82,9 +80,7 @@ decode_messages(Msg) ->
     decode_messages(Msg, []).
 
 decode_messages(<<>>, Acc) ->
-    {lists:reverse(Acc), <<>>};
-decode_messages(Rest, [unknown|Acc]) ->
-    {lists:reverse(Acc), Rest};
+    lists:reverse(Acc);
 decode_messages(Msg, Acc) ->
     {D, Rest} = decode_message(Msg),
     decode_messages(Rest, [D|Acc]).
@@ -93,9 +89,7 @@ decode_messages(Msg, Acc) ->
 decode_message(<<0:32, T/binary>>) ->
     {keep_alive, T};
 decode_message(<<Length:32, Payload:Length/binary, T/binary>>) ->
-    {decode(Payload), T};
-decode_message(T) ->
-    {unknown, T}.
+    {decode(Payload), T}.
 
 decode(<<0:8>>) ->
     choke;
