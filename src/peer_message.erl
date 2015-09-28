@@ -27,13 +27,13 @@ encode_handshake(<<InfoHash:20/binary>>, <<PeerId:20/binary>>) ->
       PeerId/binary>>.
 
 %% Decode peer wire protocol handshake message.
-decode_handshake(<<PStrLen:8,
-                   PStr:PStrLen/binary,
+decode_handshake(<<19,
+                   "BitTorrent protocol",
                    _Reserved:8/binary,
                    InfoHash:20/binary,
                    PeerId:20/binary,
                    T/binary>>) ->
-    {{PStr, InfoHash, PeerId}, T};
+    {{InfoHash, PeerId}, T};
 decode_handshake(T) ->
     {unknown, T}.
 
