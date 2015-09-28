@@ -114,6 +114,4 @@ decode(<<6:8, Index:32, Begin:32, Length:32>>) ->
 decode(<<7:8, Index:32, Begin:32, Piece/binary>>) ->
     {piece, Index, Begin, Piece};
 decode(<<8:8, Index:32, Begin:32, Length:32>>) ->
-    {cancel, Index, Begin, Length};
-decode(_) ->
-    unknown.
+    {cancel, Index, Begin, Length}.
