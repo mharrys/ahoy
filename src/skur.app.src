@@ -1,14 +1,10 @@
 {application, skur,
- [
-  {description, ""},
+ [{description, ""},
   {vsn, "1"},
   {registered, []},
-  {applications, [
-                  kernel,
+  {applications, [kernel,
                   stdlib,
                   crypto,
-                  inets
-                 ]},
-  {mod, { skur_app, []}},
-  {env, []}
- ]}.
+                  inets]},
+  {mod, {skur_app, []}},
+  {env, []}]}.

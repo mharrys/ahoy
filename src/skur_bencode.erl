@@ -1,4 +1,4 @@
--module(bencode).
+-module(skur_bencode).
 
 -export([encode/1]).
 

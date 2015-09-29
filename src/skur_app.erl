@@ -1,6 +1,9 @@
 -module(skur_app).
+
 -behaviour(application).
+
 -export([start/2, stop/1]).
+
 -ifdef(TEST).
 -include_lib("eunit/include/eunit.hrl").
 -endif.

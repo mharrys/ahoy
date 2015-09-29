@@ -1,8 +1,9 @@
 -module(skur_util).
+
 -export([request_url/2, encode_url/1]).
 
-%% Creates a URL from a set of parameters
-%% so that {key, val} becomes &key=val with URL encoding
+%% Creates a URL from a set of parameters so that {key, val} becomes &key=val
+%% with URL encoding
 request_url(Url, Parameters) ->
     request_url(Url, Parameters, "").
 request_url(Url, [], Acc) ->
@@ -17,8 +18,8 @@ request_url(Url, [{Key, Value}|Parameters], Acc) ->
     NewAcc = Acc ++ http_uri:encode(Key) ++ "=" ++ http_uri:encode(Value) ++ "&",
     request_url(Url, Parameters, NewAcc).
 
-%% URL encodes binary data according to RFC1738
-%% only needed because http_uri:encode can't handle binary
+%% URL encodes binary data according to RFC1738 only needed because
+%% http_uri:encode can't handle binary
 encode_url(Bytes) ->
     encode_url(Bytes, "").
 encode_url(<<>>, Acc) ->

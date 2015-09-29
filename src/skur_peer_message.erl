@@ -1,4 +1,4 @@
--module(peer_message).
+-module(skur_peer_message).
 
 -export([encode_handshake/2,
          decode_handshake/1,

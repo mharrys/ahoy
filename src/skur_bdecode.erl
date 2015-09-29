@@ -1,4 +1,4 @@
--module(bdecode).
+-module(skur_bdecode).
 
 -export([decode/1]).
 
