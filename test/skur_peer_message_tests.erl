@@ -16,31 +16,6 @@ encode_handshake_test() ->
     ?assertEqual(PeerId, PeerId2),
     ?assertEqual(<<>>, T2).
 
-decode_handshake_test() ->
-    Invalid = <<"invalid">>,
-    ?assertError(function_clause, skur_peer_message:decode_handshake(Invalid)),
-    PStrLen = 19,
-    PStr = <<"BitTorrent protocol">>,
-    Reserved = <<0:8/unit:8>>,
-    InfoHash = <<"aaaaaaaaaaaaaaaaaaaa">>,
-    PeerId = <<"bbbbbbbbbbbbbbbbbbbb">>,
-    Valid = <<PStrLen, PStr/binary, Reserved/binary, InfoHash/binary, PeerId/binary>>,
-    ?assertEqual({{InfoHash, PeerId}, <<>>}, skur_peer_message:decode_handshake(Valid)),
-    Tail = <<"foobar">>,
-    Valid2 = <<Valid/binary, Tail/binary>>,
-    ?assertEqual({{InfoHash, PeerId}, Tail}, skur_peer_message:decode_handshake(Valid2)),
-    Invalid2 = <<18, PStr/binary, Reserved/binary, InfoHash/binary, PeerId/binary>>,
-    ?assertError(function_clause, skur_peer_message:decode_handshake(Invalid2)),
-    Invalid3 = <<PStrLen, "foobar", Reserved/binary, InfoHash/binary, PeerId/binary>>,
-    ?assertError(function_clause, skur_peer_message:decode_handshake(Invalid3)),
-    Invalid4 = <<Invalid3/binary, Tail/binary>>,
-    ?assertError(function_clause, skur_peer_message:decode_handshake(Invalid4)),
-    Invalid5 = <<PStrLen, PStr/binary, "foobar", InfoHash/binary, PeerId/binary>>,
-    ?assertError(function_clause, skur_peer_message:decode_handshake(Invalid5)),
-    % valid in size, but invalid order (which we can't know)
-    Valid3 = <<PStrLen, PStr/binary, Reserved/binary, PeerId/binary, InfoHash/binary>>,
-    ?assertEqual({{PeerId, InfoHash}, <<>>}, skur_peer_message:decode_handshake(Valid3)).
-
 encode_empty_payload_messages_test() ->
     ?assertEqual(<<0, 0, 0, 0>>, skur_peer_message:encode_keep_alive()),
     ?assertEqual(<<0, 0, 0, 1, 0>>, skur_peer_message:encode_choke()),
@@ -79,6 +54,31 @@ encode_cancel_test() ->
     ?assertEqual(<<0, 0, 0, 13, 8, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0>>, C),
     C2 = skur_peer_message:encode_cancel(42, 13, 37),
     ?assertEqual(<<0, 0, 0, 13, 8, 42:32, 13:32, 37:32>>, C2).
+
+decode_message_handshake_test() ->
+    Invalid = <<"invalid">>,
+    ?assertError(function_clause, skur_peer_message:decode_message(Invalid)),
+    PStrLen = 19,
+    PStr = <<"BitTorrent protocol">>,
+    Reserved = <<0:8/unit:8>>,
+    InfoHash = <<"aaaaaaaaaaaaaaaaaaaa">>,
+    PeerId = <<"bbbbbbbbbbbbbbbbbbbb">>,
+    Valid = <<PStrLen, PStr/binary, Reserved/binary, InfoHash/binary, PeerId/binary>>,
+    ?assertEqual({{InfoHash, PeerId}, <<>>}, skur_peer_message:decode_message(Valid)),
+    Tail = <<"foobar">>,
+    Valid2 = <<Valid/binary, Tail/binary>>,
+    ?assertEqual({{InfoHash, PeerId}, Tail}, skur_peer_message:decode_message(Valid2)),
+    Invalid2 = <<18, PStr/binary, Reserved/binary, InfoHash/binary, PeerId/binary>>,
+    ?assertError(function_clause, skur_peer_message:decode_message(Invalid2)),
+    Invalid3 = <<PStrLen, "foobar", Reserved/binary, InfoHash/binary, PeerId/binary>>,
+    ?assertError(function_clause, skur_peer_message:decode_message(Invalid3)),
+    Invalid4 = <<Invalid3/binary, Tail/binary>>,
+    ?assertError(function_clause, skur_peer_message:decode_message(Invalid4)),
+    Invalid5 = <<PStrLen, PStr/binary, "foobar", InfoHash/binary, PeerId/binary>>,
+    ?assertError(function_clause, skur_peer_message:decode_message(Invalid5)),
+    % valid in size, but invalid order (which we can't know)
+    Valid3 = <<PStrLen, PStr/binary, Reserved/binary, PeerId/binary, InfoHash/binary>>,
+    ?assertEqual({{PeerId, InfoHash}, <<>>}, skur_peer_message:decode_message(Valid3)).
 
 decode_messages_no_payload_test() ->
     ?assertEqual([], skur_peer_message:decode_messages(<<>>)),

@@ -1,7 +1,6 @@
 -module(skur_peer_message).
 
 -export([encode_handshake/2,
-         decode_handshake/1,
          encode_keep_alive/0,
          encode_choke/0,
          encode_unchoke/0,
@@ -25,15 +24,6 @@ encode_handshake(<<InfoHash:20/binary>>, <<PeerId:20/binary>>) ->
       Reserved/binary,
       InfoHash/binary,
       PeerId/binary>>.
-
-%% Decode peer wire protocol handshake message.
-decode_handshake(<<19,
-                   "BitTorrent protocol",
-                   _Reserved:8/binary,
-                   InfoHash:20/binary,
-                   PeerId:20/binary,
-                   T/binary>>) ->
-    {{InfoHash, PeerId}, T}.
 
 encode_keep_alive() ->
     <<0:32>>.
@@ -86,6 +76,13 @@ decode_messages(Msg, Acc) ->
     decode_messages(Rest, [D|Acc]).
 
 %% Decode peer wire protocol message.
+decode_message(<<19,
+                 "BitTorrent protocol",
+                 _Reserved:8/binary,
+                 InfoHash:20/binary,
+                 PeerId:20/binary,
+                 T/binary>>) ->
+    {{InfoHash, PeerId}, T};
 decode_message(<<0:32, T/binary>>) ->
     {keep_alive, T};
 decode_message(<<Length:32, Payload:Length/binary, T/binary>>) ->
