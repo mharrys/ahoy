@@ -64,10 +64,14 @@ decode_message_handshake_test() ->
     InfoHash = <<"aaaaaaaaaaaaaaaaaaaa">>,
     PeerId = <<"bbbbbbbbbbbbbbbbbbbb">>,
     Valid = <<PStrLen, PStr/binary, Reserved/binary, InfoHash/binary, PeerId/binary>>,
-    ?assertEqual({{InfoHash, PeerId}, <<>>}, skur_peer_message:decode_message(Valid)),
+    ?assertEqual(
+        {handshake, InfoHash, PeerId, <<>>},
+        skur_peer_message:decode_message(Valid)),
     Tail = <<"foobar">>,
     Valid2 = <<Valid/binary, Tail/binary>>,
-    ?assertEqual({{InfoHash, PeerId}, Tail}, skur_peer_message:decode_message(Valid2)),
+    ?assertEqual(
+        {handshake, InfoHash, PeerId, Tail},
+        skur_peer_message:decode_message(Valid2)),
     Invalid2 = <<18, PStr/binary, Reserved/binary, InfoHash/binary, PeerId/binary>>,
     ?assertError(function_clause, skur_peer_message:decode_message(Invalid2)),
     Invalid3 = <<PStrLen, "foobar", Reserved/binary, InfoHash/binary, PeerId/binary>>,
@@ -78,7 +82,9 @@ decode_message_handshake_test() ->
     ?assertError(function_clause, skur_peer_message:decode_message(Invalid5)),
     % valid in size, but invalid order (which we can't know)
     Valid3 = <<PStrLen, PStr/binary, Reserved/binary, PeerId/binary, InfoHash/binary>>,
-    ?assertEqual({{PeerId, InfoHash}, <<>>}, skur_peer_message:decode_message(Valid3)).
+    ?assertEqual(
+        {handshake, PeerId, InfoHash, <<>>},
+        skur_peer_message:decode_message(Valid3)).
 
 decode_messages_no_payload_test() ->
     ?assertEqual([], skur_peer_message:decode_messages(<<>>)),

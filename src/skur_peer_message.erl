@@ -82,7 +82,7 @@ decode_message(<<19,
                  InfoHash:20/binary,
                  PeerId:20/binary,
                  T/binary>>) ->
-    {{InfoHash, PeerId}, T};
+    {handshake, InfoHash, PeerId, T};
 decode_message(<<0:32, T/binary>>) ->
     {keep_alive, T};
 decode_message(<<Length:32, Payload:Length/binary, T/binary>>) ->
