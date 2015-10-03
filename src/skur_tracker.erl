@@ -52,7 +52,7 @@ handle_cast(update, State) ->
          State#state.downloaded,
          State#state.left]),
     {ok, {_, _, Body}} = httpc:request(lists:flatten(Url)),
-    {dict, Resp} = bdecode:decode(list_to_binary(Body)),
+    {dict, Resp} = skur_bdecode:decode(list_to_binary(Body)),
     {_, RawPeers} = lists:keyfind(<<"peers">>, 1, Resp),
     {_, Interval} = lists:keyfind(<<"interval">>, 1, Resp),
     {_, Complete} = lists:keyfind(<<"complete">>, 1, Resp),
