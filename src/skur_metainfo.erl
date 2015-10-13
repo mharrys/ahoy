@@ -40,7 +40,7 @@ parse([{<<"httpseeds">>, {list, List}}|T], Meta) ->
 parse([{<<"comment">>, Bin}|T], Meta) ->
     Comment = binary:bin_to_list(Bin),
     parse(T, Meta#metainfo{comment=Comment});
-parse([{<<"created_by">>, Bin}|T], Meta) ->
+parse([{<<"created by">>, Bin}|T], Meta) ->
     CreatedBy = binary:bin_to_list(Bin),
     parse(T, Meta#metainfo{created_by=CreatedBy});
 parse([{<<"encoding">>, Bin}|T], Meta) ->
