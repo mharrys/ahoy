@@ -70,7 +70,9 @@ decode_messages(Msg) ->
     decode_messages(Msg, []).
 
 decode_messages(<<>>, Acc) ->
-    lists:reverse(Acc);
+    {lists:reverse(Acc), <<>>};
+decode_messages(Rest, [incomplete|Acc]) ->
+    {lists:reverse(Acc), Rest};
 decode_messages(Msg, Acc) ->
     {D, Rest} = decode_message(Msg),
     decode_messages(Rest, [D|Acc]).
@@ -82,11 +84,13 @@ decode_message(<<19,
                  InfoHash:20/binary,
                  PeerId:20/binary,
                  T/binary>>) ->
-    {handshake, InfoHash, PeerId, T};
+    {{handshake, InfoHash, PeerId}, T};
 decode_message(<<0:32, T/binary>>) ->
     {keep_alive, T};
 decode_message(<<Length:32, Payload:Length/binary, T/binary>>) ->
-    {decode(Payload), T}.
+    {decode(Payload), T};
+decode_message(<<Length:32, T/binary>>) when Length > byte_size(T) ->
+    {incomplete, <<Length:32, T/binary>>}.
 
 decode(<<0:8>>) ->
     choke;

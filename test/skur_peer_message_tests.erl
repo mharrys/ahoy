@@ -57,7 +57,7 @@ encode_cancel_test() ->
 
 decode_message_handshake_test() ->
     Invalid = <<"invalid">>,
-    ?assertError(function_clause, skur_peer_message:decode_message(Invalid)),
+    ?assertEqual({incomplete, Invalid}, skur_peer_message:decode_message(Invalid)),
     PStrLen = 19,
     PStr = <<"BitTorrent protocol">>,
     Reserved = <<0:8/unit:8>>,
@@ -65,39 +65,42 @@ decode_message_handshake_test() ->
     PeerId = <<"bbbbbbbbbbbbbbbbbbbb">>,
     Valid = <<PStrLen, PStr/binary, Reserved/binary, InfoHash/binary, PeerId/binary>>,
     ?assertEqual(
-        {handshake, InfoHash, PeerId, <<>>},
+        {{handshake, InfoHash, PeerId}, <<>>},
         skur_peer_message:decode_message(Valid)),
     Tail = <<"foobar">>,
     Valid2 = <<Valid/binary, Tail/binary>>,
     ?assertEqual(
-        {handshake, InfoHash, PeerId, Tail},
+        {{handshake, InfoHash, PeerId}, Tail},
         skur_peer_message:decode_message(Valid2)),
     Invalid2 = <<18, PStr/binary, Reserved/binary, InfoHash/binary, PeerId/binary>>,
-    ?assertError(function_clause, skur_peer_message:decode_message(Invalid2)),
+    ?assertEqual({incomplete, Invalid2}, skur_peer_message:decode_message(Invalid2)),
     Invalid3 = <<PStrLen, "foobar", Reserved/binary, InfoHash/binary, PeerId/binary>>,
-    ?assertError(function_clause, skur_peer_message:decode_message(Invalid3)),
+    ?assertEqual({incomplete, Invalid3}, skur_peer_message:decode_message(Invalid3)),
     Invalid4 = <<Invalid3/binary, Tail/binary>>,
-    ?assertError(function_clause, skur_peer_message:decode_message(Invalid4)),
+    ?assertEqual({incomplete, Invalid4}, skur_peer_message:decode_message(Invalid4)),
     Invalid5 = <<PStrLen, PStr/binary, "foobar", InfoHash/binary, PeerId/binary>>,
-    ?assertError(function_clause, skur_peer_message:decode_message(Invalid5)),
+    ?assertEqual({incomplete, Invalid5}, skur_peer_message:decode_message(Invalid5)),
     % valid in size, but invalid order (which we can't know)
     Valid3 = <<PStrLen, PStr/binary, Reserved/binary, PeerId/binary, InfoHash/binary>>,
     ?assertEqual(
-        {handshake, PeerId, InfoHash, <<>>},
+        {{handshake, PeerId, InfoHash}, <<>>},
         skur_peer_message:decode_message(Valid3)).
 
 decode_messages_no_payload_test() ->
-    ?assertEqual([], skur_peer_message:decode_messages(<<>>)),
-    ?assertError(function_clause, skur_peer_message:decode_messages(<<"foobar">>)),
-    ?assertEqual([keep_alive], skur_peer_message:decode_messages(<<0:32>>)),
-    ?assertError(
-        function_clause,
-        skur_peer_message:decode_messages(<<0:32, "foobar">>)),
-    ?assertError(
-        function_clause,
-        skur_peer_message:decode_messages(<<0:32, "foobar", 1:32, 2>>)),
+    Empty = <<>>,
+    ?assertEqual({[], Empty}, skur_peer_message:decode_messages(Empty)),
+    Invalid = <<"foobar">>,
+    ?assertEqual({[], Invalid}, skur_peer_message:decode_messages(Invalid)),
+    ?assertEqual({[keep_alive], <<>>}, skur_peer_message:decode_messages(<<0:32>>)),
     ?assertEqual(
-        [keep_alive, interested],
+        {[keep_alive], Invalid},
+        skur_peer_message:decode_messages(<<0:32, Invalid/binary>>)),
+    Invalid2 = <<Invalid/binary, 1:32, 2>>,
+    ?assertEqual(
+        {[keep_alive], Invalid2},
+        skur_peer_message:decode_messages(<<0:32, Invalid2/binary>>)),
+    ?assertEqual(
+        {[keep_alive, interested], <<>>},
         skur_peer_message:decode_messages(<<0:32, 1:32, 2>>)).
 
 decode_messages_test() ->
@@ -105,10 +108,12 @@ decode_messages_test() ->
     ?assertError(function_clause, skur_peer_message:decode_messages(M)),
     M2 = <<1:32, 3, 13:32, 8, 1000:32, 2000:32, 3000:32>>,
     ?assertEqual(
-        [not_interested, {cancel, 1000, 2000, 3000}],
+        {[not_interested, {cancel, 1000, 2000, 3000}], <<>>},
         skur_peer_message:decode_messages(M2)),
     M3 = <<5000:32, 42>>,
-    ?assertError(function_clause, skur_peer_message:decode_messages(M3)),
+    ?assertEqual(
+        {[], M3},
+        skur_peer_message:decode_messages(M3)),
     M4 = <<1:32, 42>>,
     ?assertError(function_clause, skur_peer_message:decode_messages(M4)).
 
