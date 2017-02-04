@@ -1,7 +1,10 @@
-# skur
+Ahoy there matey!
+=================
 
-Compile with
+An application that can download files with the torrent protocol i.e. a very
+basic bittorent client. It's created just for fun.
 
-```
-$ rebar compile eunit
-```
+Build
+-----
+
+    $ rebar3 compile

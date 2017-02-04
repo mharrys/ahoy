@@ -1,6 +1,7 @@
--module(skur_util).
+-module(ahoy_util).
 
--export([request_url/2, encode_url/1]).
+-export([request_url/2,
+         encode_url/1]).
 
 %% Creates a URL from a set of parameters so that {key, val} becomes &key=val
 %% with URL encoding

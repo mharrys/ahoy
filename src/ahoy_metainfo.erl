@@ -1,14 +1,14 @@
--module(skur_metainfo).
+-module(ahoy_metainfo).
 
 -export([new/1,
          single_file_mode/1,
          multiple_file_mode/1]).
 
--include_lib("skur_metainfo.hrl").
+-include_lib("ahoy_metainfo.hrl").
 
 %% Create a new metainfo structure from specified Path.
 new(Path) when is_list(Path) ->
-    {dict, D} = skur_bdecode:decode(Path),
+    {dict, D} = ahoy_bdecode:decode(Path),
     parse(D, #metainfo{}).
 
 %% Return true if single file mode, false otherwise.
@@ -19,10 +19,10 @@ single_file_mode(#metainfo{info=Info}) ->
 multiple_file_mode(Meta) ->
     not single_file_mode(Meta).
 
-%% Parse skur_metainfo file structure
+%% Parse ahoy_metainfo file structure
 parse([{<<"info">>, {dict, Dict}}|T], Meta) ->
     Info = parse_info(Dict, #info{}),
-    Encoded = skur_bencode:encode({dict, Dict}),
+    Encoded = ahoy_bencode:encode({dict, Dict}),
     Hash = crypto:hash(sha, Encoded),
     parse(T, Meta#metainfo{info=Info, info_hash=Hash});
 parse([{<<"announce">>, Bin}|T], Meta) ->
@@ -47,12 +47,12 @@ parse([{<<"encoding">>, Bin}|T], Meta) ->
     Encoding = binary:bin_to_list(Bin),
     parse(T, Meta#metainfo{encoding=Encoding});
 parse([H|T], Meta) ->
-    io:format("Unknown skur_metainfo ~p~n", [H]),
+    io:format("Unknown ahoy_metainfo ~p~n", [H]),
     parse(T, Meta);
 parse([], Meta) ->
     Meta.
 
-%% Parse info dictionary (within skur_metainfo file structure)
+%% Parse info dictionary (within ahoy_metainfo file structure)
 parse_info([{<<"piece length">>, PieceLength}|T], Info) ->
     parse_info(T, Info#info{piece_length=PieceLength});
 parse_info([{<<"pieces">>, Pieces}|T], Info) ->

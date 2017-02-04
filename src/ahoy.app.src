@@ -1,0 +1,13 @@
+{application, ahoy,
+ [{description, "Download files with the torrent protocol"},
+  {vsn, "0.1.0"},
+  {registered, []},
+  {applications,
+    [kernel,
+     stdlib,
+     crypto,
+     inets
+    ]},
+  {mod, {ahoy_app, []}},
+  {env, []}
+ ]}.

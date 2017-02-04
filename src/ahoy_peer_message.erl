@@ -1,4 +1,4 @@
--module(skur_peer_message).
+-module(ahoy_peer_message).
 
 -export([encode_handshake/2,
          encode_keep_alive/0,

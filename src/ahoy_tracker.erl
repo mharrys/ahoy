@@ -1,6 +1,7 @@
--module(skur_tracker).
+-module(ahoy_tracker).
 
--export([start_link/6, get_peers/4]).
+-export([start_link/6,
+         get_peers/4]).
 
 -behaviour(gen_server).
 
@@ -11,8 +12,8 @@
          terminate/2,
          code_change/3]).
 
--include_lib("skur_metainfo.hrl").
--include_lib("skur_peer.hrl").
+-include_lib("ahoy_metainfo.hrl").
+-include_lib("ahoy_peer.hrl").
 
 -record(state, {url,
                 peers = [],
@@ -33,7 +34,7 @@ init([Meta, PeerId, Port, Up, Down, Left]) ->
     Url = io_lib:format(
         "~s?info_hash=~s&peer_id=~s&port=~b&compact=1",
         [Meta#metainfo.announce,
-         skur_util:encode_url(Meta#metainfo.info_hash),
+         ahoy_util:encode_url(Meta#metainfo.info_hash),
          PeerId,
          Port]),
     {ok, #state{url = Url, left = Left, uploaded = Up, downloaded = Down}}.
@@ -52,7 +53,7 @@ handle_cast(update, State) ->
          State#state.downloaded,
          State#state.left]),
     {ok, {_, _, Body}} = httpc:request(lists:flatten(Url)),
-    {dict, Resp} = skur_bdecode:decode(list_to_binary(Body)),
+    {dict, Resp} = ahoy_bdecode:decode(list_to_binary(Body)),
     {_, RawPeers} = lists:keyfind(<<"peers">>, 1, Resp),
     {_, Interval} = lists:keyfind(<<"interval">>, 1, Resp),
     {_, Complete} = lists:keyfind(<<"complete">>, 1, Resp),
