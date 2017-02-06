@@ -1,3 +1,6 @@
+-type ip_address() :: inet:ip_address().
+-type port_number() :: inet:port_number().
+
 %% Describes a peer
--record(peer, {ip = {0, 0, 0, 0},
-               port = 0}).
+-record(peer, {ip :: ip_address(),
+               port :: port_number()}).
