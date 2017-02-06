@@ -1,5 +1,5 @@
 {application, ahoy,
- [{description, "Download files with the torrent protocol"},
+ [{description, "Download files with the BitTorrent protocol"},
   {vsn, "0.1.0"},
   {registered, []},
   {applications,
