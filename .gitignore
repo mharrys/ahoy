@@ -18,3 +18,4 @@ log
 logs
 _build
 rebar3.crashdump
+files
