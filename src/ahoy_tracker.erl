@@ -1,6 +1,6 @@
 -module(ahoy_tracker).
 
--export([start_link/6,
+-export([start_link/5,
          get_peers/4]).
 
 -behaviour(gen_server).
@@ -23,19 +23,19 @@
                 downloaded,
                 left}).
 
-start_link(Meta, PeerId, Port, Up, Down, Left) ->
-    gen_server:start_link(?MODULE, [Meta, PeerId, Port, Up, Down, Left], []).
+start_link(Meta, Port, Up, Down, Left) ->
+    gen_server:start_link(?MODULE, [Meta, Port, Up, Down, Left], []).
 
 get_peers(Pid, Up, Down, Left) ->
     gen_server:call(Pid, {get_peers, Up, Down, Left}).
 
-init([Meta, PeerId, Port, Up, Down, Left]) ->
+init([Meta, Port, Up, Down, Left]) ->
     gen_server:cast(self(), update),
     Url = io_lib:format(
         "~s?info_hash=~s&peer_id=~s&port=~b&compact=1",
         [Meta#metainfo.announce,
          ahoy_percent_encoding:encode(Meta#metainfo.info_hash),
-         PeerId,
+         ?PEER_ID,
          Port]),
     {ok, #state{url = Url, left = Left, uploaded = Up, downloaded = Down}}.
 
