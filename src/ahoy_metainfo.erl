@@ -45,7 +45,8 @@ parse_info([{<<"length">>, Length}|T], Info) ->
 parse_info([{<<"piece length">>, PieceLength}|T], Info) ->
     parse_info(T, Info#info{piece_length=PieceLength});
 parse_info([{<<"private">>, Private}|T], Info) ->
-    parse_info(T, Info#info{private=Private});
+    Bool = if Private == 0 -> false; true -> true end,
+    parse_info(T, Info#info{private=Bool});
 parse_info([{<<"pieces">>, Pieces}|T], Info) ->
     parse_info(T, Info#info{pieces=Pieces});
 parse_info([H|T], Info) ->
