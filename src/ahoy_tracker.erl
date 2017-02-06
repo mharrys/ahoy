@@ -34,7 +34,7 @@ init([Meta, PeerId, Port, Up, Down, Left]) ->
     Url = io_lib:format(
         "~s?info_hash=~s&peer_id=~s&port=~b&compact=1",
         [Meta#metainfo.announce,
-         ahoy_util:encode_url(Meta#metainfo.info_hash),
+         ahoy_percent_encoding:encode(Meta#metainfo.info_hash),
          PeerId,
          Port]),
     {ok, #state{url = Url, left = Left, uploaded = Up, downloaded = Down}}.
