@@ -10,26 +10,26 @@ new(Path) when is_list(Path) ->
     parse(D, #metainfo{}).
 
 %% Parse ahoy_metainfo file structure
-parse([{<<"info">>, {dict, Dict}}|T], Meta) ->
-    Info = parse_info(Dict, #info{}),
-    Encoded = ahoy_bencode:encode({dict, Dict}),
-    Hash = crypto:hash(sha, Encoded),
-    parse(T, Meta#metainfo{info=Info, info_hash=Hash});
 parse([{<<"announce">>, Bin}|T], Meta) ->
     Announce = binary:bin_to_list(Bin),
     parse(T, Meta#metainfo{announce=Announce});
-parse([{<<"creation date">>, Timestamp}|T], Meta) ->
-    CreationDate = parse_timestamp(Timestamp),
-    parse(T, Meta#metainfo{creation_date=CreationDate});
 parse([{<<"comment">>, Bin}|T], Meta) ->
     Comment = binary:bin_to_list(Bin),
     parse(T, Meta#metainfo{comment=Comment});
 parse([{<<"created by">>, Bin}|T], Meta) ->
     CreatedBy = binary:bin_to_list(Bin),
     parse(T, Meta#metainfo{created_by=CreatedBy});
+parse([{<<"creation date">>, Timestamp}|T], Meta) ->
+    CreationDate = parse_timestamp(Timestamp),
+    parse(T, Meta#metainfo{creation_date=CreationDate});
 parse([{<<"encoding">>, Bin}|T], Meta) ->
     Encoding = binary:bin_to_list(Bin),
     parse(T, Meta#metainfo{encoding=Encoding});
+parse([{<<"info">>, {dict, Dict}}|T], Meta) ->
+    Info = parse_info(Dict, #info{}),
+    Encoded = ahoy_bencode:encode({dict, Dict}),
+    Hash = crypto:hash(sha, Encoded),
+    parse(T, Meta#metainfo{info=Info, info_hash=Hash});
 parse([H|T], Meta) ->
     io:format("Unknown metainfo ~p~n", [H]),
     parse(T, Meta);
@@ -37,17 +37,17 @@ parse([], Meta) ->
     Meta.
 
 %% Parse info dictionary (within ahoy_metainfo file structure)
-parse_info([{<<"piece length">>, PieceLength}|T], Info) ->
-    parse_info(T, Info#info{piece_length=PieceLength});
-parse_info([{<<"pieces">>, Pieces}|T], Info) ->
-    parse_info(T, Info#info{pieces=Pieces});
-parse_info([{<<"private">>, Private}|T], Info) ->
-    parse_info(T, Info#info{private=Private});
 parse_info([{<<"name">>, Bin}|T], Info) ->
     Name = binary:bin_to_list(Bin),
     parse_info(T, Info#info{name=Name});
 parse_info([{<<"length">>, Length}|T], Info) ->
     parse_info(T, Info#info{length=Length});
+parse_info([{<<"piece length">>, PieceLength}|T], Info) ->
+    parse_info(T, Info#info{piece_length=PieceLength});
+parse_info([{<<"private">>, Private}|T], Info) ->
+    parse_info(T, Info#info{private=Private});
+parse_info([{<<"pieces">>, Pieces}|T], Info) ->
+    parse_info(T, Info#info{pieces=Pieces});
 parse_info([H|T], Info) ->
     io:format("Unknown info ~p~n", [H]),
     parse_info(T, Info);

@@ -1,15 +1,15 @@
 %% Describes metainfo file structure for a torrent file
--record(metainfo, {info,
-                   info_hash,
-                   announce,
-                   creation_date,
+-record(metainfo, {announce,
                    comment,
                    created_by,
-                   encoding}).
+                   creation_date,
+                   encoding,
+                   info,
+                   info_hash}).
 
 %% Describes info dictionary in "metainfo"
--record(info, {piece_length,
-               pieces,
+-record(info, {name,
+               length,
+               piece_length,
                private,
-               name,
-               length}).
+               pieces}).
