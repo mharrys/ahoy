@@ -1,8 +1,6 @@
 -module(ahoy_metainfo).
 
--export([new/1,
-         single_file_mode/1,
-         multiple_file_mode/1]).
+-export([new/1]).
 
 -include_lib("ahoy_metainfo.hrl").
 
@@ -10,14 +8,6 @@
 new(Path) when is_list(Path) ->
     {dict, D} = ahoy_bdecode:decode(Path),
     parse(D, #metainfo{}).
-
-%% Return true if single file mode, false otherwise.
-single_file_mode(#metainfo{info=Info}) ->
-    Info#info.files == undefined.
-
-%% Return true if multiple file mode, false otherwise.
-multiple_file_mode(Meta) ->
-    not single_file_mode(Meta).
 
 %% Parse ahoy_metainfo file structure
 parse([{<<"info">>, {dict, Dict}}|T], Meta) ->
@@ -28,15 +18,9 @@ parse([{<<"info">>, {dict, Dict}}|T], Meta) ->
 parse([{<<"announce">>, Bin}|T], Meta) ->
     Announce = binary:bin_to_list(Bin),
     parse(T, Meta#metainfo{announce=Announce});
-parse([{<<"announce-list">>, {list, List}}|T], Meta) ->
-    AnnounceList = [binary:bin_to_list(X) || {list, [X]} <- List],
-    parse(T, Meta#metainfo{announce_list=AnnounceList});
 parse([{<<"creation date">>, Timestamp}|T], Meta) ->
     CreationDate = parse_timestamp(Timestamp),
     parse(T, Meta#metainfo{creation_date=CreationDate});
-parse([{<<"httpseeds">>, {list, List}}|T], Meta) ->
-    Httpseeds = [binary:bin_to_list(X) || {list, [X]} <- List],
-    parse(T, Meta#metainfo{httpseeds=Httpseeds});
 parse([{<<"comment">>, Bin}|T], Meta) ->
     Comment = binary:bin_to_list(Bin),
     parse(T, Meta#metainfo{comment=Comment});
@@ -47,7 +31,7 @@ parse([{<<"encoding">>, Bin}|T], Meta) ->
     Encoding = binary:bin_to_list(Bin),
     parse(T, Meta#metainfo{encoding=Encoding});
 parse([H|T], Meta) ->
-    io:format("Unknown ahoy_metainfo ~p~n", [H]),
+    io:format("Unknown metainfo ~p~n", [H]),
     parse(T, Meta);
 parse([], Meta) ->
     Meta.
@@ -64,30 +48,11 @@ parse_info([{<<"name">>, Bin}|T], Info) ->
     parse_info(T, Info#info{name=Name});
 parse_info([{<<"length">>, Length}|T], Info) ->
     parse_info(T, Info#info{length=Length});
-parse_info([{<<"md5sum">>, MD5Sum}|T], Info) ->
-    parse_info(T, Info#info{md5sum=MD5Sum});
-parse_info([{<<"files">>, {list, List}}|T], Info) ->
-    Files = [parse_files(X, #filesinfo{}) || {dict, X} <- List],
-    parse_info(T, Info#info{files=Files});
 parse_info([H|T], Info) ->
     io:format("Unknown info ~p~n", [H]),
     parse_info(T, Info);
 parse_info([], Info) ->
     Info.
-
-%% Parse info in multiple file mode (within info dictionary)
-parse_files([{<<"length">>, Length}|T], Files) ->
-    parse_files(T, Files#filesinfo{length=Length});
-parse_files([{<<"md5sum">>, MD5Sum}|T], Files) ->
-    parse_files(T, Files#filesinfo{md5sum=MD5Sum});
-parse_files([{<<"path">>, {list, List}}|T], Files) ->
-    Path = binary:bin_to_list(filename:join(List)),
-    parse_files(T, Files#filesinfo{path=Path});
-parse_files([H|T], Files) ->
-    io:format("Unknown filesinfo ~p~n", [H]),
-    parse_files(T, Files);
-parse_files([], Files) ->
-    Files.
 
 %% Parse timestamp to datetime
 parse_timestamp(Timestamp) ->
