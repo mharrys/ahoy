@@ -1,7 +1,9 @@
 -module(ahoy_tracker).
 
--export([start_link/5,
-         get_peers/4]).
+-export([start_link/2,
+         start_link/3,
+         get_last_response/1,
+         get_peers/1]).
 
 -behaviour(gen_server).
 
@@ -13,71 +15,67 @@
          code_change/3]).
 
 -include_lib("ahoy_metainfo.hrl").
--include_lib("ahoy_peer.hrl").
+-include_lib("ahoy_tracker_progress.hrl").
+-include_lib("ahoy_tracker_response.hrl").
 
--record(state, {url,
-                peers = [],
-                complete,
-                incomplete,
-                uploaded,
-                downloaded,
-                left}).
+-record(state, {meta :: metainfo(),
+                port :: port_number(),
+                progress :: tracker_progress(),
+                response :: tracker_response()}).
 
-start_link(Meta, Port, Up, Down, Left) ->
-    gen_server:start_link(?MODULE, [Meta, Port, Up, Down, Left], []).
+start_link(Meta, Port) ->
+    Info = Meta#metainfo.info,
+    Progress = #tracker_progress{
+        uploaded = 0,
+        downloaded = 0,
+        left = Info#info.length
+    },
+    gen_server:start_link(?MODULE, [Meta, Port, Progress], []).
 
-get_peers(Pid, Up, Down, Left) ->
-    gen_server:call(Pid, {get_peers, Up, Down, Left}).
+start_link(Meta, Port, Progress) ->
+    gen_server:start_link(?MODULE, [Meta, Port, Progress], []).
 
-init([Meta, Port, Up, Down, Left]) ->
+%% @doc Return latest response recieved from tracker.
+-spec get_last_response(pid()) -> tracker_response().
+get_last_response(Pid) ->
+    gen_server:call(Pid, get_last_response).
+
+%% @doc Return peers from latest response recieved from tracker.
+-spec get_peers(pid()) -> list(peer()).
+get_peers(Pid) ->
+    gen_server:call(Pid, get_peers).
+
+init([Meta, Port, Progress]) ->
+    State = #state{meta = Meta, port = Port, progress = Progress},
     gen_server:cast(self(), update),
-    Url = io_lib:format(
-        "~s?info_hash=~s&peer_id=~s&port=~b&compact=1",
-        [Meta#metainfo.announce,
-         ahoy_percent_encoding:encode(Meta#metainfo.info_hash),
-         ?PEER_ID,
-         Port]),
-    {ok, #state{url = Url, left = Left, uploaded = Up, downloaded = Down}}.
+    {ok, State}.
 
-handle_call({get_peers, Up, Down, Left}, _From, State) ->
-    NewState = State#state{uploaded = Up, downloaded = Down, left = Left},
-    {reply, State#state.peers, NewState};
+handle_call(get_last_response, _From, State=#state{response=Resp}) ->
+    {reply, Resp, State};
+handle_call(get_peers, _From, State=#state{response=Resp}) ->
+    {reply, Resp#tracker_response.peers, State};
 handle_call(_Request, _From, State) ->
     {reply, {error, unknown_call}, State}.
 
-handle_cast(update, State) ->
-    Url = io_lib:format(
-        "~s&uploaded=~b&downloaded=~b&left=~b",
-        [State#state.url,
-         State#state.uploaded,
-         State#state.downloaded,
-         State#state.left]),
-    {ok, {_, _, Body}} = httpc:request(lists:flatten(Url)),
-    {dict, Resp} = ahoy_bdecode:decode(list_to_binary(Body)),
-    {_, RawPeers} = lists:keyfind(<<"peers">>, 1, Resp),
-    {_, Interval} = lists:keyfind(<<"interval">>, 1, Resp),
-    {_, Complete} = lists:keyfind(<<"complete">>, 1, Resp),
-    {_, Incomplete} = lists:keyfind(<<"incomplete">>, 1, Resp),
-    Peers = read_peers(RawPeers),
+handle_cast(update, State=#state{meta=Meta, port=Port, progress=Progress}) ->
+    Resp = request_peers(Meta, Port, Progress),
+    Interval = Resp#tracker_response.interval,
     timer:apply_after(Interval * 1000, gen_server, cast, [self(), update]),
-    {noreply, State#state{peers = Peers,
-                          complete = Complete,
-                          incomplete = Incomplete}};
+    {noreply, State#state{response = Resp}};
 handle_cast(_Msg, State) ->
     {noreply, State}.
 
 handle_info(_Info, State) ->
     {noreply, State}.
 
-read_peers(Bytes) ->
-    read_peers(Bytes, []).
-read_peers(<<>>, Acc) ->
-    Acc;
-read_peers(<<IP1:8, IP2:8, IP3:8, IP4:8, Port:16, Rest/binary>>, Acc) ->
-    read_peers(Rest, [#peer{ip = {IP1, IP2, IP3, IP4}, port = Port}|Acc]).
-
 terminate(_Reason, _State) ->
     ok.
 
 code_change(_OldVsn, State, _Extra) ->
     {ok, State}.
+
+%% @doc Request tracker to provide a list of active peers.
+request_peers(Meta, Port, Progress) ->
+    Url = ahoy_tracker_message:encode_request(Meta, Port, Progress),
+    {ok, {_, _, Body}} = httpc:request(lists:flatten(Url)),
+    ahoy_tracker_message:decode_response(Body).

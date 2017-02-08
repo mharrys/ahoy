@@ -6,3 +6,5 @@
 %% Describes a peer
 -record(peer, {ip :: ip_address(),
                port :: port_number()}).
+
+-type peer() :: #peer{}.

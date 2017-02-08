@@ -16,3 +16,5 @@
                    encoding :: string(),
                    info :: info(),
                    info_hash :: binary()}).
+
+-type metainfo() :: #metainfo{}.
