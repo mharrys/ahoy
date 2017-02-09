@@ -48,7 +48,9 @@ parse_info([{<<"private">>, Private}|T], Info) ->
     Bool = if Private == 0 -> false; true -> true end,
     parse_info(T, Info#info{private=Bool});
 parse_info([{<<"pieces">>, Pieces}|T], Info) ->
-    parse_info(T, Info#info{pieces=Pieces});
+    % pieces is an array of SHA1 hashes and every hash is always 20 bytes long
+    PieceCount = round(byte_size(Pieces) / 20),
+    parse_info(T, Info#info{piece_count=PieceCount, pieces=Pieces});
 parse_info([H|T], Info) ->
     io:format("Unknown info ~p~n", [H]),
     parse_info(T, Info);

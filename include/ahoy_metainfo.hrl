@@ -1,8 +1,9 @@
 %% Describes info dictionary in "metainfo"
 -record(info, {name :: string(),
                length :: non_neg_integer(),
-               piece_length :: non_neg_integer(),
                private = false :: boolean(),
+               piece_count :: non_neg_integer(),
+               piece_length :: non_neg_integer(),
                pieces :: binary()}).
 
 -type info() :: #info{}.
