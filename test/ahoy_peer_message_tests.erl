@@ -42,12 +42,12 @@ encode_request_test() ->
     R2 = ahoy_peer_message:encode_request(42, 13, 37),
     ?assertEqual(<<0, 0, 0, 13, 6, 0, 0, 0, 42, 0, 0, 0, 13, 0, 0, 0, 37>>, R2).
 
-encode_piece_test() ->
-    Piece = <<"foobar">>,
-    P = ahoy_peer_message:encode_piece(0, 0, Piece),
-    ?assertEqual(<<0, 0, 0, 15, 7, 0, 0, 0, 0, 0, 0, 0, 0, Piece/binary>>, P),
-    P2 = ahoy_peer_message:encode_piece(42, 1337, Piece),
-    ?assertEqual(<<0, 0, 0, 15, 7, 42:32, 1337:32, Piece/binary>>, P2).
+encode_block_test() ->
+    Block = <<"foobar">>,
+    P = ahoy_peer_message:encode_block(0, 0, Block),
+    ?assertEqual(<<0, 0, 0, 15, 7, 0, 0, 0, 0, 0, 0, 0, 0, Block/binary>>, P),
+    P2 = ahoy_peer_message:encode_block(42, 1337, Block),
+    ?assertEqual(<<0, 0, 0, 15, 7, 42:32, 1337:32, Block/binary>>, P2).
 
 encode_cancel_test() ->
     C = ahoy_peer_message:encode_cancel(0, 0, 0),
@@ -156,10 +156,10 @@ decode_message_test() ->
         ahoy_peer_message:decode_message(<<13:32, 6, 42:32, 13:32, 37:32, T/binary>>)),
     P = <<"baz">>,
     ?assertEqual(
-        {{piece, 13, 37, P}, <<>>},
+        {{block, 13, 37, P}, <<>>},
         ahoy_peer_message:decode_message(<<12:32, 7, 13:32, 37:32, P/binary>>)),
     ?assertEqual(
-        {{piece, 13, 37, P}, T},
+        {{block, 13, 37, P}, T},
         ahoy_peer_message:decode_message(<<12:32, 7, 13:32, 37:32, P/binary, T/binary>>)),
     ?assertEqual(
         {{cancel, 42, 13, 37}, <<>>},

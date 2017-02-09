@@ -9,7 +9,7 @@
          encode_have/1,
          encode_bitfield/1,
          encode_request/3,
-         encode_piece/3,
+         encode_block/3,
          encode_cancel/3,
          decode_messages/1,
          decode_message/1]).
@@ -51,11 +51,10 @@ encode_bitfield(Bitfield) ->
 encode_request(Index, Begin, Length) ->
     encode(13, 6, <<Index:32, Begin:32, Length:32>>).
 
-%% Encode peer wire protocol message for piece, where Piece is expected to be
-%% a binary value. Note that "piece" here is not the same as "piece" defined
-%% in metainfo, alternative name is "block".
-encode_piece(Index, Begin, Piece) ->
-    encode(9 + byte_size(Piece), 7, <<Index:32, Begin:32, Piece/binary>>).
+%% Encode peer wire protocol message for block, where Block is expected to be
+%% a binary value.
+encode_block(Index, Begin, Block) ->
+    encode(9 + byte_size(Block), 7, <<Index:32, Begin:32, Block/binary>>).
 
 encode_cancel(Index, Begin, Length) ->
     encode(13, 8, <<Index:32, Begin:32, Length:32>>).
@@ -106,7 +105,7 @@ decode(<<5:8, Bitfield/binary>>) ->
     {bitfield, Bitfield};
 decode(<<6:8, Index:32, Begin:32, Length:32>>) ->
     {request, Index, Begin, Length};
-decode(<<7:8, Index:32, Begin:32, Piece/binary>>) ->
-    {piece, Index, Begin, Piece};
+decode(<<7:8, Index:32, Begin:32, Block/binary>>) ->
+    {block, Index, Begin, Block};
 decode(<<8:8, Index:32, Begin:32, Length:32>>) ->
     {cancel, Index, Begin, Length}.
