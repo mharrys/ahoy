@@ -64,7 +64,7 @@ handle_call(_Request, _From, State) ->
     {reply, {error, unknown_call}, State}.
 
 handle_cast({set, Index}, State=#state{bitfield=Bitfield}) ->
-    <<Pad:Index, N:1, T/bitstring>> = Bitfield,
+    <<Pad:Index, _:1, T/bitstring>> = Bitfield,
     NewBitfield = <<Pad:Index, 1:1, T/bitstring>>,
     {noreply, State#state{bitfield=NewBitfield}};
 handle_cast(_Msg, State) ->
