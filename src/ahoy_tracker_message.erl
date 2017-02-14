@@ -40,11 +40,11 @@ decode_response(Body) ->
         peers = Peers
     }.
 
-%% @doc Re-interpret byte stream as list of peer records.
--spec read_peers(binary()) -> list(peer()).
+%% @doc Re-interpret byte stream as list of peer addresses.
+-spec read_peers(binary()) -> list(peer_address()).
 read_peers(Bytes) ->
     read_peers(Bytes, []).
 read_peers(<<>>, Acc) ->
     Acc;
 read_peers(<<IP1:8, IP2:8, IP3:8, IP4:8, Port:16, Rest/binary>>, Acc) ->
-    read_peers(Rest, [#peer{ip = {IP1, IP2, IP3, IP4}, port = Port}|Acc]).
+    read_peers(Rest, [#peer_address{ip = {IP1, IP2, IP3, IP4}, port = Port}|Acc]).

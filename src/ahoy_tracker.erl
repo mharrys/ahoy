@@ -41,7 +41,7 @@ get_last_response(Pid) ->
     gen_server:call(Pid, get_last_response).
 
 %% @doc Return peers from latest response recieved from tracker.
--spec get_peers(pid()) -> list(peer()).
+-spec get_peers(pid()) -> list(peer_address()).
 get_peers(Pid) ->
     gen_server:call(Pid, get_peers).
 
