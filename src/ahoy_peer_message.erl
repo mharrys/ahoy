@@ -15,6 +15,8 @@
          decode_message/1]).
 
 %% Encode peer wire protocol handshake message.
+encode_handshake(InfoHash, PeerId) when is_list(PeerId) ->
+    encode_handshake(InfoHash, list_to_binary(PeerId));
 encode_handshake(<<InfoHash:20/binary>>, <<PeerId:20/binary>>) ->
     PStrLen = <<19>>,
     PStr = <<"BitTorrent protocol">>,
