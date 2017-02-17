@@ -38,6 +38,17 @@ random_sets_test() ->
     is_bitfield_non_empty(Pid),
     is_bitfield_binary(Pid).
 
+replace_test() ->
+    N = 2000,
+    Is = [2, 1, 133, 25, 10, 50, 1393, 32, 13, 10, 190, 1999],
+    {ok, Pid} = ahoy_bitfield:start_link(N),
+    {ok, Pid2} = ahoy_bitfield:start_link(N),
+    [ahoy_bitfield:set(Pid, X) || X <- Is],
+    RawBitfield = ahoy_bitfield:raw_bitfield(Pid2),
+    ahoy_bitfield:replace(Pid, RawBitfield),
+    RawBitfield2 = ahoy_bitfield:raw_bitfield(Pid),
+    ?assertEqual(RawBitfield, RawBitfield2).
+
 is_bitfield_empty(Pid) ->
     ?assertEqual(true, ahoy_bitfield:is_empty(Pid)).
 

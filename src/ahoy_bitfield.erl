@@ -18,6 +18,7 @@
          set/2,
          is_set/2,
          is_empty/1,
+         replace/2,
          raw_bitfield/1]).
 
 -behaviour(gen_server).
@@ -49,6 +50,11 @@ is_set(Pid, Index) ->
 is_empty(Pid) ->
     gen_server:call(Pid, is_empty).
 
+%% @doc Replace raw bitfield with specified raw bitfield.
+-spec replace(pid(), binary()) -> ok.
+replace(Pid, Bitfield) ->
+    gen_server:cast(Pid, {replace, Bitfield}).
+
 %% @doc Return raw bitfield.
 -spec raw_bitfield(pid()) -> binary().
 raw_bitfield(Pid) ->
@@ -75,7 +81,12 @@ handle_call(_Request, _From, State) ->
 handle_cast({set, Index}, State=#state{bitfield=Bitfield}) ->
     <<Pad:Index, _:1, T/bitstring>> = Bitfield,
     NewBitfield = <<Pad:Index, 1:1, T/bitstring>>,
-    {noreply, State#state{bitfield=NewBitfield}};
+    NewState = State#state{bitfield=NewBitfield},
+    {noreply, NewState};
+handle_cast({replace, NewBitfield}, State=#state{bitfield=Bitfield}) ->
+    true = bit_size(NewBitfield) =:= bit_size(Bitfield),
+    NewState = State#state{bitfield=NewBitfield},
+    {noreply, NewState};
 handle_cast(_Msg, State) ->
     {noreply, State}.
 
