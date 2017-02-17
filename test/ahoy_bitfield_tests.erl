@@ -5,6 +5,7 @@
 empty_test() ->
     {ok, Pid} = ahoy_bitfield:start_link(0),
     ?assertEqual(<<>>, ahoy_bitfield:raw_bitfield(Pid)),
+    is_bitfield_empty(Pid),
     is_bitfield_binary(Pid).
 
 starting_state_test() ->
@@ -13,6 +14,7 @@ starting_state_test() ->
     Xs = [ahoy_bitfield:is_set(Pid, X) || X <- lists:seq(0, N - 1)],
     Ys = lists:map(fun(_) -> false end, lists:seq(0, N - 1)),
     ?assertEqual(Ys, Xs),
+    is_bitfield_empty(Pid),
     is_bitfield_binary(Pid).
 
 set_all_test() ->
@@ -22,6 +24,7 @@ set_all_test() ->
     Xs = [ahoy_bitfield:is_set(Pid, X) || X <- lists:seq(0, N - 1)],
     Ys = lists:map(fun(_) -> true end, lists:seq(0, N - 1)),
     ?assertEqual(Ys, Xs),
+    is_bitfield_non_empty(Pid),
     is_bitfield_binary(Pid).
 
 random_sets_test() ->
@@ -32,7 +35,14 @@ random_sets_test() ->
     Xs = [ahoy_bitfield:is_set(Pid, X) || X <- lists:seq(0, N - 1)],
     Ys = lists:map(fun(I) -> lists:member(I, Is) end, lists:seq(0, N - 1)),
     ?assertEqual(Ys, Xs),
+    is_bitfield_non_empty(Pid),
     is_bitfield_binary(Pid).
+
+is_bitfield_empty(Pid) ->
+    ?assertEqual(true, ahoy_bitfield:is_empty(Pid)).
+
+is_bitfield_non_empty(Pid) ->
+    ?assertEqual(false, ahoy_bitfield:is_empty(Pid)).
 
 is_bitfield_binary(Pid) ->
     ?assertEqual(true, is_binary(ahoy_bitfield:raw_bitfield(Pid))).

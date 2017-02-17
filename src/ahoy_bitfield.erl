@@ -17,6 +17,7 @@
 -export([start_link/1,
          set/2,
          is_set/2,
+         is_empty/1,
          raw_bitfield/1]).
 
 -behaviour(gen_server).
@@ -43,6 +44,11 @@ set(Pid, Index) ->
 is_set(Pid, Index) ->
     gen_server:call(Pid, {is_set, Index}).
 
+%% @doc True if no bit is set, false otherwise.
+-spec is_empty(pid()) -> boolean().
+is_empty(Pid) ->
+    gen_server:call(Pid, is_empty).
+
 %% @doc Return raw bitfield.
 -spec raw_bitfield(pid()) -> binary().
 raw_bitfield(Pid) ->
@@ -57,6 +63,9 @@ init([NumBits]) ->
 handle_call({is_set, Index}, _From, State=#state{bitfield=Bitfield}) ->
     <<_:Index, N:1, _/bitstring>> = Bitfield,
     Reply = N =:= 1,
+    {reply, Reply, State};
+handle_call(is_empty, _From, State=#state{bitfield=Bitfield}) ->
+    Reply = only_zero(Bitfield),
     {reply, Reply, State};
 handle_call(raw_bitfield, _From, State=#state{bitfield=Bitfield}) ->
     {reply, Bitfield, State};
@@ -78,3 +87,10 @@ terminate(_Reason, _State) ->
 
 code_change(_OldVsn, State, _Extra) ->
     {ok, State}.
+
+only_zero(<<>>) ->
+    true;
+only_zero(<<0:8, T/binary>>) ->
+    only_zero(T);
+only_zero(_) ->
+    false.
