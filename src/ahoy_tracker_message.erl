@@ -12,7 +12,7 @@
 encode_request(Meta, Port, Progress) ->
     #metainfo{announce=Announce, info_hash=InfoHash} = Meta,
     #tracker_progress{uploaded=Up, downloaded=Down, left=Left} = Progress,
-    Fmt = "~s?info_hash=~s&peer_id=~s&port=~b&&uploaded=~b&downloaded=~b&left=~b&compact=1",
+    Fmt = "~s?info_hash=~s&peer_id=~s&port=~b&uploaded=~b&downloaded=~b&left=~b&compact=1",
     Args = [
         Announce,
         ahoy_percent_encoding:encode(InfoHash),
