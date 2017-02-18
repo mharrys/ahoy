@@ -16,6 +16,7 @@
 
 -export([start_link/1,
          start_link/2,
+         start_link/3,
          pop_missing_block/1,
          add_completed_block/2,
          raw_piece/1]).
@@ -29,7 +30,7 @@
          terminate/2,
          code_change/3]).
 
--define(BLOCK_SIZE, 16384).
+-include_lib("ahoy_block_size.hrl").
 
 -type block_index() :: non_neg_integer().
 -type block_data() :: binary() | atom().
@@ -40,7 +41,8 @@
                 num_blocks :: non_neg_integer(),
                 missing :: list(block()),
                 pending :: list(block()),
-                completed :: list(block())}).
+                completed :: list(block()),
+                last_block_size}).
 
 %% @doc Create a new piece of specified piece length in bytes.
 start_link(PieceLength) ->
@@ -48,25 +50,29 @@ start_link(PieceLength) ->
 
 %% @doc Create a new piece of specified piece length and block size in bytes
 start_link(PieceLength, BlockSize) ->
-    gen_server:start_link(?MODULE, [PieceLength, BlockSize], []).
+    start_link(PieceLength, BlockSize, false).
+
+%% @doc Create the last piece, which is a special case.
+start_link(PieceLength, BlockSize, LastPiece) ->
+    gen_server:start_link(?MODULE, [PieceLength, BlockSize, LastPiece], []).
 
 %% @doc Return tuple of the next missing block along with the expected block
 %% size. False if there are no more missing blocks.
 -spec pop_missing_block(pid()) -> {ok, {block(), block_size()}} | false.
 pop_missing_block(Pid) ->
-    gen_server:call(Pid, pop_missing_block).
+    gen_server:call(Pid, pop).
 
 %% @doc Add missing block with the missing data as completed.
 -spec add_completed_block(pid(), block()) -> ok.
 add_completed_block(Pid, Block) ->
-    gen_server:cast(Pid, {add_completed_block, Block}).
+    gen_server:cast(Pid, {block, Block}).
 
 %% @doc Return all blocks as a binary. False if not all blocks are completed.
 -spec raw_piece(pid()) -> {ok, binary()} | false.
 raw_piece(Pid) ->
     gen_server:call(Pid, raw_piece).
 
-init([PieceLength, BlockSize]) ->
+init([PieceLength, BlockSize, false]) ->
     OneOrZero = case PieceLength rem BlockSize =:= 0 of
         true  -> 0;
         false -> 1
@@ -76,23 +82,35 @@ init([PieceLength, BlockSize]) ->
     Pending = [],
     Completed = [],
     State = #state{block_size = BlockSize, num_blocks = NumBlocks,
-        missing = Missing, pending = Pending, completed = Completed},
+        missing = Missing, pending = Pending, completed = Completed,
+        last_block_size = false},
+    {ok, State};
+init([_, BlockSize, {_, NumBlocks, LastBlockSize}]) ->
+    Missing = [{X, empty} || X <- lists:seq(0, NumBlocks)],
+    Pending = [],
+    Completed = [],
+    State = #state{block_size = BlockSize, num_blocks = NumBlocks,
+        missing = Missing, pending = Pending, completed = Completed,
+        last_block_size = LastBlockSize},
     {ok, State}.
 
-handle_call(pop_missing_block, _From, State=#state{missing=[]}) ->
+handle_call(pop, _From, State=#state{missing=[]}) ->
     Reply = false,
     {reply, Reply, State};
-handle_call(pop_missing_block, _From, State=#state{block_size=BlockSize,
-        missing=[Block|NewMissing], pending=Pending}) ->
-    Reply = {ok, {Block, BlockSize}},
-    NewPending = [Block | Pending],
-    NewState = State#state{missing=NewMissing, pending=NewPending},
-    {reply, Reply, NewState};
-handle_call(raw_piece, _From, State=#state{missing=[], pending=[],
-        completed=Completed}) ->
-    Sorted = lists:keysort(1, Completed),
-    Piece = lists:foldl(fun({_, X}, Acc) -> <<Acc/binary, X/binary>> end,
-        <<>>, Sorted),
+handle_call(pop, _From, State=#state{block_size=BlockSize,
+                                     last_block_size=LastBlockSize,
+                                     missing=[Block|Missing],
+                                     pending=Pending}) ->
+    BlockSize2 = choose_block_size(BlockSize, LastBlockSize, Missing),
+    Reply = {ok, {Block, BlockSize2}},
+    Pending2 = [Block|Pending],
+    State2 = State#state{missing=Missing, pending=Pending2},
+    {reply, Reply, State2};
+handle_call(raw_piece, _From, State=#state{missing=[],
+                                           pending=[],
+                                           completed=Completed}) ->
+
+    Piece = block_to_binary(Completed),
     Reply = {ok, Piece},
     {reply, Reply, State};
 handle_call(raw_piece, _From, State) ->
@@ -100,21 +118,20 @@ handle_call(raw_piece, _From, State) ->
 handle_call(_Request, _From, State) ->
     {reply, {error, unknown_call}, State}.
 
-handle_cast({add_completed_block, {_, empty}}, State) ->
+handle_cast({block, {_, empty}}, State) ->
     {noreply, State};
-handle_cast({add_completed_block, Block}, State=#state{block_size=BlockSize,
-        pending=Pending, completed=Completed}) ->
-    {Index, Data} = Block,
-    true = byte_size(Data) =:= BlockSize,
-    NewState = case lists:keyfind(Index, 1, Pending) of
-        {Index, empty} ->
-            NewPending = lists:keydelete(Index, 1, Pending),
-            NewCompleted = [Block | Completed],
-            State#state{pending=NewPending, completed=NewCompleted};
+handle_cast({block, {BlockIndex, BlockData}}, State=#state{block_size=BlockSize,
+                                                           pending=Pending,
+                                                           completed=Completed}) ->
+    true = byte_size(BlockData) =< BlockSize,
+    State2 = case lists:keytake(BlockIndex, 1, Pending) of
+        {value, {BlockIndex, empty}, Pending2} ->
+            Completed2 = [{BlockIndex, BlockData}|Completed],
+            State#state{pending=Pending2, completed=Completed2};
         _ ->
             State
     end,
-    {noreply, NewState};
+    {noreply, State2};
 handle_cast(_Msg, State) ->
     {noreply, State}.
 
@@ -126,3 +143,23 @@ terminate(_Reason, _State) ->
 
 code_change(_OldVsn, State, _Extra) ->
     {ok, State}.
+
+%% Convert blocks to binary i.e. raw piece.
+block_to_binary(Blocks) ->
+    SortedBlocks = lists:keysort(1, Blocks),
+    lists:foldl(fun block_fold/2, <<>>, SortedBlocks).
+
+%% Function for folding blocks into binary.
+block_fold({_, X}, Acc) ->
+    <<Acc/binary, X/binary>>.
+
+%% Return block size i.e. detect when this is the last block.
+choose_block_size(BlockSize, false, _Missing) ->
+    % is not last piece
+    BlockSize;
+choose_block_size(_BlockSize, LastBlockSize, []) ->
+    % is last piece and last block
+    LastBlockSize;
+choose_block_size(BlockSize, _LastBlockSize, _Missing) ->
+    % is last piece but not last block
+    BlockSize.
