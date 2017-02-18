@@ -4,6 +4,7 @@
          decode_response/1]).
 
 -include_lib("ahoy_metainfo.hrl").
+-include_lib("ahoy_peer_id.hrl").
 -include_lib("ahoy_tracker_progress.hrl").
 -include_lib("ahoy_tracker_response.hrl").
 
@@ -27,26 +28,26 @@ encode_request(Meta, Port, Progress) ->
     io_lib:format(Fmt, Args).
 
 %% @doc Decode tracker response body as a defined record.
--spec decode_response(list(string())) -> tracker_response().
+-spec decode_response(body()) -> tracker_response().
 decode_response(Body) ->
     {dict, Resp} = ahoy_bdecode:decode(list_to_binary(Body)),
     {_, Complete} = lists:keyfind(<<"complete">>, 1, Resp),
     {_, Incomplete} = lists:keyfind(<<"incomplete">>, 1, Resp),
     {_, Interval} = lists:keyfind(<<"interval">>, 1, Resp),
     {_, RawPeers} = lists:keyfind(<<"peers">>, 1, Resp),
-    Peers = read_peers(RawPeers),
+    PeerAddresses = read_peers(RawPeers),
     #tracker_response{
         complete = Complete,
         incomplete = Incomplete,
         interval = Interval,
-        peers = Peers
+        peer_addresses = PeerAddresses
     }.
 
-%% @doc Re-interpret byte stream as list of peer addresses.
--spec read_peers(binary()) -> list(peer_address()).
+%% Re-interpret byte stream as list of peer addresses.
+-spec read_peers(binary()) -> list(address()).
 read_peers(Bytes) ->
     read_peers(Bytes, []).
 read_peers(<<>>, Acc) ->
     Acc;
 read_peers(<<IP1:8, IP2:8, IP3:8, IP4:8, Port:16, Rest/binary>>, Acc) ->
-    read_peers(Rest, [#peer_address{ip = {IP1, IP2, IP3, IP4}, port = Port}|Acc]).
+    read_peers(Rest, [{{IP1, IP2, IP3, IP4}, Port}|Acc]).
