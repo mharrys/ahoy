@@ -1,4 +1,4 @@
--include_lib("ahoy_peer_address.hrl").
+-include_lib("ahoy_address.hrl").
 
 -type second() :: integer().
 
@@ -6,6 +6,6 @@
 -record(tracker_response, {complete = 0 :: integer(),
                            incomplete = 0 :: integer(),
                            interval = 0 :: second(),
-                           peers = [] :: list(peer_address())}).
+                           peer_addresses = [] :: list(address())}).
 
 -type tracker_response() :: #tracker_response{}.
