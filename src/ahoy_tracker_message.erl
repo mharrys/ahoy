@@ -7,6 +7,8 @@
 -include_lib("ahoy_tracker_progress.hrl").
 -include_lib("ahoy_tracker_response.hrl").
 
+-type body() :: list(string()).
+
 %% @doc Encode HTTP GET request URL of active peers to a tracker.
 -spec encode_request(metainfo(), port_number(), tracker_progress()) -> string().
 encode_request(Meta, Port, Progress) ->
