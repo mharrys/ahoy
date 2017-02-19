@@ -52,7 +52,7 @@
                 pending = [] :: pending()}).
 
 start_link(Address, InfoHash, Stat, ClientBitfield, RemoteBitfield) ->
-    gen_fsm:start(?MODULE, [Address, InfoHash, Stat, ClientBitfield, RemoteBitfield], []).
+    gen_fsm:start_link(?MODULE, [Address, InfoHash, Stat, ClientBitfield, RemoteBitfield], []).
 
 %% @doc Move from connecting to connected state with remote peer.
 -spec connected(peer()) -> ok.
