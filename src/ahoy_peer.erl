@@ -26,7 +26,7 @@
          handshake/2,
          exchange/2]).
 
--include_lib("ahoy_block_size.hrl").
+-include_lib("ahoy_block.hrl").
 
 -type peer() :: pid().
 -type peer_conn() :: pid().
@@ -34,10 +34,6 @@
 -type piece_stat() :: pid().
 -type piece_download() :: pid().
 -type piece_index() :: non_neg_integer().
--type block_index() :: non_neg_integer().
--type block_offset() :: non_neg_integer().
--type block_size() :: non_neg_integer().
--type block_data() :: binary().
 -type bitfield() :: pid().
 -type download_key() :: {piece_index(), block_offset()}.
 -type download() :: {download_key(), piece_download(), block_size()}.

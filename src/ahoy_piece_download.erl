@@ -12,15 +12,12 @@
          terminate/2,
          code_change/3]).
 
--include_lib("ahoy_block_size.hrl").
+-include_lib("ahoy_block.hrl").
 
 -type torrent_download() :: pid().
 -type piece() :: pid().
 -type peer() :: pid().
 -type piece_index() :: non_neg_integer().
--type block_index() :: non_neg_integer().
--type block_data() :: binary() | atom().
--type block() :: {block_index(), block_data()}.
 
 -record(state, {torrent_download :: torrent_download(),
                 piece_index :: piece_index(),

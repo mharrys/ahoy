@@ -30,14 +30,9 @@
          terminate/2,
          code_change/3]).
 
--include_lib("ahoy_block_size.hrl").
+-include_lib("ahoy_block.hrl").
 
--type block_index() :: non_neg_integer().
--type block_data() :: binary() | atom().
--type block_size() :: non_neg_integer().
--type block() :: {block_index(), block_data()}.
-
--record(state, {block_size :: non_neg_integer(),
+-record(state, {block_size :: block_size(),
                 num_blocks :: non_neg_integer(),
                 missing :: list(block()),
                 pending :: list(block()),

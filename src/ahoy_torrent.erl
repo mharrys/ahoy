@@ -16,7 +16,7 @@
          code_change/3]).
 
 -include_lib("ahoy_address.hrl").
--include_lib("ahoy_block_size.hrl").
+-include_lib("ahoy_block.hrl").
 -include_lib("ahoy_metainfo.hrl").
 -include_lib("ahoy_port.hrl").
 
