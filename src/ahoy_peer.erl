@@ -149,7 +149,7 @@ exchange(heartbeat, State=#state{conn=Conn}) ->
     ahoy_peer_conn:send_keep_alive(Conn),
     {next_state, exchange, State};
 exchange({download, Download}, State=#state{choke=false, downloads=Downloads, conn=Conn}) ->
-                                                % choke inactive, send download request immediately
+    % choke inactive, send download request immediately
     {{PieceIndex, BlockOffset}, _, BlockSize} = Download,
     ahoy_peer_conn:send_request(Conn, PieceIndex, BlockOffset, BlockSize),
     Downloads2 = [Download|Downloads],
