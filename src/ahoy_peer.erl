@@ -86,12 +86,8 @@ download(Pid, From, PieceIndex, BlockIndex, BlockSize) ->
 bitfield(Pid) ->
     gen_fsm:sync_send_all_state_event(Pid, bitfield).
 
-init([Bitfield]) ->
-    State = #state{remote_bitfield=Bitfield},
-    {ok, connecting, State};
 init([Address, InfoHash, Stat, ClientBitfield, RemoteBitfield]) ->
-    {IP, Port} = Address,
-    case ahoy_peer_conn:start_link(self(), IP, Port) of
+    case ahoy_peer_conn:start_link(self(), Address) of
         {ok, Conn} ->
             State = #state{
                 conn = Conn,
@@ -107,7 +103,7 @@ init([Address, InfoHash, Stat, ClientBitfield, RemoteBitfield]) ->
             },
             {ok, connecting, State};
         _ ->
-            {stop, "Connection failed"}
+            {stop, "Socket connection failed"}
     end.
 
 connecting(connected, State=#state{conn=Conn, info_hash=InfoHash}) ->

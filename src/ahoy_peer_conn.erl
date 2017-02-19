@@ -5,7 +5,7 @@
 
 -behaviour(gen_server).
 
--export([start_link/3,
+-export([start_link/2,
          send/2]).
 
 -export([init/1,
@@ -27,15 +27,15 @@
                 socket :: socket(),
                 data :: data()}).
 
-start_link(Peer, IP, Port) ->
-    gen_server:start_link(?MODULE, [Peer, IP, Port], [{timeout, ?INIT_TIMEOUT}]).
+start_link(Peer, Address) ->
+    gen_server:start_link(?MODULE, [Peer, Address], [{timeout, ?INIT_TIMEOUT}]).
 
 %% @doc Send message over socket.
 -spec send(pid(), packet()) -> ok.
 send(Pid, Msg) ->
     gen_server:call(Pid, {send, Msg}).
 
-init([Peer, IP, Port]) ->
+init([Peer, {IP, Port}]) ->
     Options = [
         binary,
         {packet, 0},
