@@ -59,7 +59,7 @@ handle_call(_Request, _From, State) ->
 handle_cast(request, State=#state{piece_index=PieceIndex, piece=Piece, peer=Peer}) ->
     case ahoy_piece:pop_missing_block(Piece) of
         {ok, {{BlockIndex, _}, BlockSize}} ->
-            ahoy_peer_wire:download(Peer, self(), PieceIndex, BlockIndex, BlockSize);
+            ahoy_peer:download(Peer, self(), PieceIndex, BlockIndex, BlockSize);
         false ->
             ok
     end,

@@ -5,7 +5,7 @@
 %%% of peer messages begins with a remote peer. The module will keep the
 %%% connection alive for as long as the peer is alive.
 %%% @end
--module(ahoy_peer_wire).
+-module(ahoy_peer).
 
 -behaviour(gen_fsm).
 
@@ -186,7 +186,7 @@ exchange({block, PieceIndex, BlockOffset, BlockData}, State=#state{downloads=Dow
     State2 = State#state{downloads=Downloads2},
     {next_state, exchange, State2};
 exchange(Event, State) ->
-    io:format("ahoy_peer_wire: Unknown message ~p~n", Event),
+    io:format("ahoy_peer: Unknown message ~p~n", Event),
     {next_state, exchange, State}.
 
 handle_event(_Event, StateName, State) ->

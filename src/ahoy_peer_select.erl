@@ -90,7 +90,7 @@ find_selections([PieceIndex|PieceIndices], Peers, Selections, Unmatched) ->
 find_selection(_PieceIndex, []) ->
     false;
 find_selection(PieceIndex, [Peer|Peers]) ->
-    Bitfield = ahoy_peer_wire:bitfield(Peer),
+    Bitfield = ahoy_peer:bitfield(Peer),
     case ahoy_bitfield:is_set(Bitfield, PieceIndex) of
         true ->
             {PieceIndex, Peer};

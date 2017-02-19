@@ -121,7 +121,7 @@ start_peer(#state{meta=Meta, peer_select=Select, piece_stat=Stat, bitfield=Bitfi
     PieceCount = Meta#metainfo.info#info.piece_count,
     InfoHash = Meta#metainfo.info_hash,
     {ok, RemoteBitfield} = ahoy_bitfield:start_link(PieceCount),
-    case ahoy_peer_wire:start_link(Address, InfoHash, Stat, Bitfield, RemoteBitfield) of
+    case ahoy_peer:start_link(Address, InfoHash, Stat, Bitfield, RemoteBitfield) of
         {ok, Peer} ->
             ahoy_peer_select:add_peer(Select, Peer);
         _ ->

@@ -45,7 +45,7 @@ init([Peer, IP, Port]) ->
     ],
     case gen_tcp:connect(IP, Port, Options) of
         {ok, Socket} ->
-            ahoy_peer_wire:connected(Peer),
+            ahoy_peer:connected(Peer),
             {ok, #state{peer=Peer, socket=Socket, data= <<>>}};
         {error, Reason} ->
             {stop, Reason}
@@ -63,7 +63,7 @@ handle_cast(_Msg, State) ->
 handle_info({tcp, Socket, Bin}, State=#state{peer=Peer, data=Prev}) ->
     Data = list_to_binary([Prev, Bin]),
     {Messages, Rest} = ahoy_peer_message:decode_messages(Data),
-    [ahoy_peer_wire:peer_message(Peer, Message) || Message <- Messages],
+    [ahoy_peer:peer_message(Peer, Message) || Message <- Messages],
     ok = inet:setopts(Socket, [{active, once}]),
     {noreply, State#state{data=Rest}};
 handle_info({tcp_closed, _Socket}, State) ->
