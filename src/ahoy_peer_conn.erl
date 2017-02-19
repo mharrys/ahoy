@@ -28,7 +28,7 @@
                 data :: data()}).
 
 start_link(Peer, IP, Port) ->
-    gen_server:start(?MODULE, [Peer, IP, Port], [{timeout, ?INIT_TIMEOUT}]).
+    gen_server:start_link(?MODULE, [Peer, IP, Port], [{timeout, ?INIT_TIMEOUT}]).
 
 %% @doc Send message over socket.
 -spec send(pid(), packet()) -> ok.
