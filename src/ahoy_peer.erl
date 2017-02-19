@@ -28,6 +28,7 @@
 
 -include_lib("ahoy_block_size.hrl").
 
+-type peer() :: pid().
 -type peer_conn() :: pid().
 -type info_hash() :: binary().
 -type piece_stat() :: pid().
@@ -58,30 +59,25 @@ start_link(Address, InfoHash, Stat, ClientBitfield, RemoteBitfield) ->
     gen_fsm:start(?MODULE, [Address, InfoHash, Stat, ClientBitfield, RemoteBitfield], []).
 
 %% @doc Move from connecting to connected state with remote peer.
--spec connected(pid()) -> ok.
-connected(Pid) ->
-    gen_fsm:send_event(Pid, connected).
+-spec connected(peer()) -> ok.
+connected(Ref) ->
+    gen_fsm:send_event(Ref, connected).
 
 %% @doc Receive new message from remote peer.
-peer_message(Pid, Message) ->
-    gen_fsm:send_event(Pid, Message).
+peer_message(Ref, Message) ->
+    gen_fsm:send_event(Ref, Message).
 
 %% @doc Request to download block in piece from remote peer.
--spec download(pid(), piece_download(), piece_index(), block_index(), block_size()) -> ok.
-download(Pid, From, PieceIndex, BlockIndex, BlockSize) ->
-    % Block index is used internal, but byte offsets are used when talking
-    % with remote peers. We use ?BLOCK_SIZE since the offset will never be
-    % changed, only the last block may be a different size but that only
-    % affects the length, not offset.
+-spec download(peer(), piece_download(), piece_index(), block_index(), block_size()) -> ok.
+download(Ref, From, PieceIndex, BlockIndex, BlockSize) ->
     BlockOffset = BlockIndex * ?BLOCK_SIZE,
     Download = {{PieceIndex, BlockOffset}, From, BlockSize},
-    gen_fsm:send_event(Pid, {download, Download}).
+    gen_fsm:send_event(Ref, {download, Download}).
 
-%% @doc Return bitfield process. No guarantee that the bitfield have or will
-%% be received from remote peer.
--spec bitfield(pid()) -> bitfield().
-bitfield(Pid) ->
-    gen_fsm:sync_send_all_state_event(Pid, bitfield).
+%% @doc Return bitfield process. 
+-spec bitfield(peer()) -> bitfield().
+bitfield(Ref) ->
+    gen_fsm:sync_send_all_state_event(Ref, bitfield).
 
 init([Address, InfoHash, Stat, ClientBitfield, RemoteBitfield]) ->
     case ahoy_peer_conn:start_link(self(), Address) of
@@ -99,84 +95,77 @@ init([Address, InfoHash, Stat, ClientBitfield, RemoteBitfield]) ->
     end.
 
 connecting(connected, State=#state{conn=Conn, info_hash=InfoHash}) ->
-    % io:format("Connected~n", []),
     heartbeat(),
     ahoy_peer_conn:send_handshake(Conn, InfoHash),
     {next_state, handshake, State};
 connecting(_Event, State) ->
     {stop, "Expected connected", State}.
 
-handshake({handshake, InfoHash, <<PeerId:20/binary>>}, State=#state{
-        conn=Conn, info_hash=InfoHash, client_bitfield=ClientBitfield}) ->
-    % io:format("Handshake received from ~p~n", [PeerId]),
-    ahoy_peer_conn:send_bitfield(Conn, ClientBitfield),
+handshake({handshake, InfoHash, <<_PeerId:20/binary>>}, State=#state{conn=Conn,
+                                                                     info_hash=InfoHash,
+                                                                     client_bitfield=Bitfield}) ->
+    ahoy_peer_conn:send_bitfield(Conn, Bitfield),
     {next_state, exchange, State};
 handshake({handshake, _InfoHash, _PeerId}, State) ->
     {stop, "Invalid handshake", State};
 handshake(_Event, State) ->
     {stop, "Expected handshake", State}.
 
-%% Peer wire custom
+%% Peer wire protocol messages
+exchange(keep_alive, State) ->
+    % ignore
+    {next_state, exchange, State};
+exchange(choke, State) ->
+    % no longer allowed to send requests
+    State2 = State#state{choke=true},
+    {next_state, exchange, State2};
+exchange(unchoke, State=#state{conn=Conn, pending=Pending, downloads=Downloads}) ->
+    % allowed to send requests
+    Downloads2 = send_pending(Conn, Downloads, Pending),
+    State2 = State#state{choke=false, interested=false, pending=[], downloads=Downloads2},
+    {next_state, exchange, State2};
+exchange({have, Index}, State=#state{remote_bitfield=RemoteBitfield, stat=Stat}) ->
+    % remote peer received new piece or lazy update of bitfield
+    ahoy_bitfield:set(RemoteBitfield, Index),
+    ahoy_piece_stat:new_piece(Stat, Index),
+    {next_state, exchange, State};
+exchange({bitfield, Bitfield}, State=#state{remote_bitfield=RemoteBitfield,
+                                            remote_bitfield_recv=false,
+                                            stat=Stat}) ->
+    % current bitfield of remote peer, should only be recieved once
+    ahoy_bitfield:replace(RemoteBitfield, Bitfield),
+    ahoy_piece_stat:new_bitfield(Stat, Bitfield),
+    State2 = State#state{remote_bitfield_recv=true},
+    {next_state, exchange, State2};
+exchange({block, PieceIndex, BlockOffset, BlockData}, State=#state{downloads=Downloads}) ->
+    % download request completed, send back to process that requested it
+    Downloads2 = complete_download(PieceIndex, BlockOffset, BlockData, Downloads),
+    State2 = State#state{downloads=Downloads2},
+    {next_state, exchange, State2};
+
+%% Internal messages
 exchange(heartbeat, State=#state{conn=Conn}) ->
     heartbeat(),
     ahoy_peer_conn:send_keep_alive(Conn),
     {next_state, exchange, State};
 exchange({download, Download}, State=#state{choke=false, downloads=Downloads, conn=Conn}) ->
-    % choke inactive, send download request immediately
+                                                % choke inactive, send download request immediately
     {{PieceIndex, BlockOffset}, _, BlockSize} = Download,
     ahoy_peer_conn:send_request(Conn, PieceIndex, BlockOffset, BlockSize),
     Downloads2 = [Download|Downloads],
     State2 = State#state{downloads=Downloads2},
     {next_state, exchange, State2};
-exchange({download, Download}, State=#state{choke=true, pending=Pending,
-        interested=Interested, conn=Conn}) ->
-    % chocke active, send interested and wait for unchoke
+exchange({download, Download}, State=#state{choke=true,
+                                            pending=Pending,
+                                            interested=Interested,
+                                            conn=Conn}) ->
+    % chocke active, send interested if needed and wait for unchoke
     ahoy_peer_conn:send_interested(Conn, Interested),
     Pending2 = [Download|Pending],
     State2 = State#state{pending=Pending2, interested=true},
     {next_state, exchange, State2};
-
-%% Peer wire protocol
-exchange(keep_alive, State) ->
-    % ignore
-    % io:format("Keep alive~n", []),
-    {next_state, exchange, State};
-exchange(choke, State) ->
-    % no longer allowed to send downloads
-    % io:format("Choke~n", []),
-    NewState = State#state{choke=true},
-    {next_state, exchange, NewState};
-exchange(unchoke, State=#state{conn=Conn, pending=Pending, downloads=Downloads}) ->
-    % either remote peer expect us to start downloading or we sent a request that we are interested
-    % to start download
-    % io:format("Unchoke~n", []),
-    NewDownloads = send_pending(Conn, Downloads, Pending),
-    NewState = State#state{choke=false, interested=false, pending=[], downloads=NewDownloads},
-    {next_state, exchange, NewState};
-exchange({have, Index}, State=#state{remote_bitfield=RemoteBitfield, stat=Stat}) ->
-    % remote peer have received new pieces since its bitfield was sent, or choose to send the
-    % bitfield in a "lazy" way
-    % io:format("Have ~p~n", [Index]),
-    ahoy_bitfield:set(RemoteBitfield, Index),
-    ahoy_piece_stat:new_piece(Stat, Index),
-    {next_state, exchange, State};
-exchange({bitfield, Bitfield}, State=#state{remote_bitfield=RemoteBitfield,
-        remote_bitfield_recv=false, stat=Stat}) ->
-    % remote peer's bitfield received, this should only be recieved once and is optional to send
-    % io:format("Bitfield ~p~n", [Bitfield]),
-    ahoy_bitfield:replace(RemoteBitfield, Bitfield),
-    ahoy_piece_stat:new_bitfield(Stat, Bitfield),
-    NewState = State#state{remote_bitfield_recv=true},
-    {next_state, exchange, NewState};
-exchange({block, PieceIndex, BlockOffset, BlockData}, State=#state{downloads=Downloads}) ->
-    % download request completed, send back to process that requested it
-    % io:format("Block recieved PieceIndex(~p) BlockOffset(~p)~n", [PieceIndex, BlockOffset]),
-    Downloads2 = complete_download(PieceIndex, BlockOffset, BlockData, Downloads),
-    State2 = State#state{downloads=Downloads2},
-    {next_state, exchange, State2};
-exchange(Event, State) ->
-    io:format("ahoy_peer: Unknown message ~p~n", Event),
-    {next_state, exchange, State}.
+exchange(_Event, State) ->
+    {stop, "Unknown exchange message", State}.
 
 handle_event(_Event, StateName, State) ->
     {next_state, StateName, State}.
@@ -221,7 +210,6 @@ complete_download(PieceIndex, BlockOffset, BlockData, Downloads) ->
     Key = {PieceIndex, BlockOffset},
     case lists:keytake(Key, 1, Downloads) of
         {value, {Key, From, _BlockSize}, Downloads2} ->
-            % offsets are same for all blocks, including last
             BlockIndex = BlockOffset div ?BLOCK_SIZE,
             Block = {BlockIndex, BlockData},
             ahoy_piece_download:completed_block(From, PieceIndex, Block),
