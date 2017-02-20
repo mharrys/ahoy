@@ -3,6 +3,8 @@
 -export([start_link/5,
          completed_block/3]).
 
+-export_type([piece_dl/0]).
+
 -behaviour(gen_server).
 
 -export([init/1,
@@ -14,6 +16,7 @@
 
 -include_lib("ahoy_block.hrl").
 
+-type piece_dl() :: pid().
 -type torrent_download() :: pid().
 -type peer() :: pid().
 
@@ -27,9 +30,9 @@ start_link(TorrentDownload, PieceIndex, PieceLength, Peer, LastPiece) ->
     gen_server:start_link(?MODULE, [TorrentDownload, PieceIndex, PieceLength, Peer, LastPiece], []).
 
 %% @doc Download request response with completed block data.
--spec completed_block(pid(), ahoy_piece:piece_index(), ahoy_piece:block()) -> ok.
-completed_block(Pid, PieceIndex, Block) ->
-    gen_server:cast(Pid, {completed, PieceIndex, Block}).
+-spec completed_block(piece_dl(), ahoy_piece:piece_index(), ahoy_piece:block()) -> ok.
+completed_block(Ref, PieceIndex, Block) ->
+    gen_server:cast(Ref, {completed, PieceIndex, Block}).
 
 init([TorrentDownload, PieceIndex, PieceLength, Peer, LastPiece]) ->
     {LastPieceIndex, _, _} = LastPiece,
