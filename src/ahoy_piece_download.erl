@@ -14,8 +14,6 @@
          terminate/2,
          code_change/3]).
 
--include_lib("ahoy_block.hrl").
-
 -type piece_dl() :: pid().
 -type torrent_download() :: pid().
 -type peer() :: pid().
