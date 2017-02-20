@@ -26,8 +26,6 @@
          handshake/2,
          exchange/2]).
 
--include_lib("ahoy_block.hrl").
-
 -type peer() :: pid().
 -type peer_conn() :: pid().
 -type info_hash() :: binary().
@@ -61,9 +59,8 @@ peer_message(Ref, Message) ->
     gen_fsm:send_event(Ref, Message).
 
 %% @doc Request to download block in piece from remote peer.
--spec download(peer(), ahoy_piece_download:piece_dl(), ahoy_piece:piece_index(), ahoy_piece:block_index(), ahoy_piece:block_size()) -> ok.
-download(Ref, From, PieceIndex, BlockIndex, BlockSize) ->
-    BlockOffset = BlockIndex * ?BLOCK_SIZE,
+-spec download(peer(), ahoy_piece_download:piece_dl(), ahoy_piece:piece_index(), ahoy_piece:block_offset(), ahoy_piece:block_size()) -> ok.
+download(Ref, From, PieceIndex, BlockOffset, BlockSize) ->
     Download = {{PieceIndex, BlockOffset}, From, BlockSize},
     gen_fsm:send_event(Ref, {download, Download}).
 
@@ -203,8 +200,7 @@ complete_download(PieceIndex, BlockOffset, BlockData, Downloads) ->
     Key = {PieceIndex, BlockOffset},
     case lists:keytake(Key, 1, Downloads) of
         {value, {Key, From, _BlockSize}, Downloads2} ->
-            BlockIndex = BlockOffset div ?BLOCK_SIZE,
-            Block = {BlockIndex, BlockData},
+            Block = {BlockOffset, BlockData},
             ahoy_piece_download:completed_block(From, PieceIndex, Block),
             Downloads2;
         false ->

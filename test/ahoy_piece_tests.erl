@@ -5,7 +5,7 @@
 starting_state_test() ->
     PieceLength = 1337,
     BlockSize = 1,
-    {ok, Pid} = ahoy_piece:start_link(PieceLength, BlockSize),
+    {ok, Pid} = ahoy_piece:start_link(PieceLength, false, BlockSize),
     % expect specified number of missing blocks
     Missing = [ahoy_piece:pop_missing_block(Pid) || _ <- lists:seq(0, PieceLength - 1)],
     ?assertEqual(false, lists:member(false, Missing)),
@@ -15,7 +15,7 @@ incomplete_piece_test() ->
     PieceLength = 4,
     BlockSize = 1,
     BlockData = <<1:BlockSize>>,
-    {ok, Pid} = ahoy_piece:start_link(PieceLength, BlockSize),
+    {ok, Pid} = ahoy_piece:start_link(PieceLength, false, BlockSize),
     ?assertEqual(false, ahoy_piece:raw_piece(Pid)),
     {ok, {{I1, empty}, BlockSize}} = ahoy_piece:pop_missing_block(Pid),
     {ok, {{I2, empty}, BlockSize}} = ahoy_piece:pop_missing_block(Pid),
@@ -31,7 +31,7 @@ completed_piece_test() ->
     NumBits = BlockSize * 8,
     Data1 = <<1:NumBits>>,
     Data2 = <<2:NumBits>>,
-    {ok, Pid} = ahoy_piece:start_link(PieceLength, BlockSize),
+    {ok, Pid} = ahoy_piece:start_link(PieceLength, false, BlockSize),
     ?assertEqual(false, ahoy_piece:raw_piece(Pid)),
     {ok, {{I1, empty}, BlockSize}} = ahoy_piece:pop_missing_block(Pid),
     {ok, {{I2, empty}, BlockSize}} = ahoy_piece:pop_missing_block(Pid),

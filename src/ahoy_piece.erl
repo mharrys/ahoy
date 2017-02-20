@@ -19,13 +19,13 @@
          start_link/3,
          pop_missing_block/1,
          add_completed_block/2,
-         raw_piece/1]).
+         raw_piece/1,
+         last_piece/3]).
 
 -export_type([piece/0,
               piece_index/0,
               piece_length/0,
               raw_piece/0,
-              block_index/0,
               block_offset/0,
               block_size/0,
               block_data/0,
@@ -40,18 +40,17 @@
          terminate/2,
          code_change/3]).
 
--include_lib("ahoy_block.hrl").
+-define(BLOCK_SIZE, 16384).
 
 -type piece() :: pid().
 -type piece_index() :: non_neg_integer().
 -type piece_length() :: non_neg_integer().
 -type raw_piece() :: binary().
 
--type block_index() :: non_neg_integer().
 -type block_offset() :: non_neg_integer().
 -type block_size() :: non_neg_integer().
 -type block_data() :: binary() | atom().
--type block() :: {block_index(), block_data()}.
+-type block() :: {block_offset(), block_data()}.
 
 -record(state, {block_size :: block_size(),
                 num_blocks :: non_neg_integer(),
@@ -62,15 +61,15 @@
 
 %% @doc Create a new piece of specified piece length in bytes.
 start_link(PieceLength) ->
-    start_link(PieceLength, ?BLOCK_SIZE).
+    start_link(PieceLength, false).
 
 %% @doc Create a new piece of specified piece length and block size in bytes
-start_link(PieceLength, BlockSize) ->
-    start_link(PieceLength, BlockSize, false).
+start_link(PieceLength, LastPiece) ->
+    start_link(PieceLength, LastPiece, ?BLOCK_SIZE).
 
 %% @doc Create the last piece, which is a special case.
-start_link(PieceLength, BlockSize, LastPiece) ->
-    gen_server:start_link(?MODULE, [PieceLength, BlockSize, LastPiece], []).
+start_link(PieceLength, LastPiece, BlockSize) ->
+    gen_server:start_link(?MODULE, [PieceLength, LastPiece, BlockSize], []).
 
 %% @doc Return tuple of the next missing block along with the expected block
 %% size. False if there are no more missing blocks.
@@ -88,13 +87,20 @@ add_completed_block(Ref, Block) ->
 raw_piece(Ref) ->
     gen_server:call(Ref, raw_piece).
 
-init([PieceLength, BlockSize, false]) ->
-    OneOrZero = case PieceLength rem BlockSize =:= 0 of
-        true  -> 0;
-        false -> 1
-    end,
-    NumBlocks = (PieceLength div BlockSize) + OneOrZero,
-    Missing = [{X, empty} || X <- lists:seq(0, NumBlocks - 1)],
+%% @doc Return block info on last piece which does not always need all
+%% full blocks.
+last_piece(Length, PieceCount, PieceLength) ->
+    BlockSize = ?BLOCK_SIZE,
+    FullBlocks = Length div BlockSize,
+    LastBlockSize = Length - (FullBlocks * BlockSize),
+    NumBlocks = num_blocks(PieceLength, BlockSize),
+    PieceBlocks = FullBlocks rem NumBlocks,
+    PieceIndex = PieceCount - 1,
+    {PieceIndex, PieceBlocks, LastBlockSize}.
+
+init([PieceLength, false, BlockSize]) ->
+    NumBlocks = num_blocks(PieceLength, BlockSize),
+    Missing = [{X * BlockSize, empty} || X <- lists:seq(0, NumBlocks - 1)],
     Pending = [],
     Completed = [],
     State = #state{
@@ -106,8 +112,8 @@ init([PieceLength, BlockSize, false]) ->
         last_block_size = false
     },
     {ok, State};
-init([_, BlockSize, {_, NumBlocks, LastBlockSize}]) ->
-    Missing = [{X, empty} || X <- lists:seq(0, NumBlocks)],
+init([_, {_, NumBlocks, LastBlockSize}, BlockSize]) ->
+    Missing = [{X * BlockSize, empty} || X <- lists:seq(0, NumBlocks)],
     Pending = [],
     Completed = [],
     State = #state{
@@ -146,13 +152,13 @@ handle_call(_Request, _From, State) ->
 
 handle_cast({block, {_, empty}}, State) ->
     {noreply, State};
-handle_cast({block, {BlockIndex, BlockData}}, State=#state{block_size=BlockSize,
+handle_cast({block, {BlockOffset, BlockData}}, State=#state{block_size=BlockSize,
                                                            pending=Pending,
                                                            completed=Completed}) ->
     true = byte_size(BlockData) =< BlockSize,
-    State2 = case lists:keytake(BlockIndex, 1, Pending) of
-        {value, {BlockIndex, empty}, Pending2} ->
-            Completed2 = [{BlockIndex, BlockData}|Completed],
+    State2 = case lists:keytake(BlockOffset, 1, Pending) of
+        {value, {BlockOffset, empty}, Pending2} ->
+            Completed2 = [{BlockOffset, BlockData}|Completed],
             State#state{pending=Pending2, completed=Completed2};
         _ ->
             State
@@ -169,6 +175,13 @@ terminate(_Reason, _State) ->
 
 code_change(_OldVsn, State, _Extra) ->
     {ok, State}.
+
+num_blocks(PieceLength, BlockSize) ->
+    OneOrZero = case PieceLength rem BlockSize =:= 0 of
+        true  -> 0;
+        false -> 1
+    end,
+    (PieceLength div BlockSize) + OneOrZero.
 
 %% Convert blocks to binary i.e. raw piece.
 block_to_binary(Blocks) ->

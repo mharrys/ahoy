@@ -49,7 +49,7 @@ init([Path]) ->
     Length = Meta#metainfo.info#info.length,
     PieceCount = Meta#metainfo.info#info.piece_count,
     PieceLength = Meta#metainfo.info#info.piece_length,
-    LastPiece = last_piece(Length, PieceCount, PieceLength, ?BLOCK_SIZE),
+    LastPiece = ahoy_piece:last_piece(Length, PieceCount, PieceLength),
     PieceInfo = {PieceLength, LastPiece},
     {ok, FileWriter} = ahoy_file_writer:start_link(Name),
     {ok, Bitfield} = ahoy_bitfield:start_link(PieceCount),
@@ -141,17 +141,3 @@ valid_piece(Pieces, PieceIndex, RawPiece) ->
     HashIndex = PieceIndex * HashLen,
     <<_:HashIndex/binary, PieceHash:HashLen/binary, _/binary>> = Pieces,
     PieceHash =:= crypto:hash(sha, RawPiece).
-
-%% Return block info on last piece since it does not always need all full
-%% blocks and may end in another block size.
-last_piece(Length, PieceCount, PieceLength, BlockSize) ->
-    FullBlocks = Length div BlockSize,
-    LastBlockSize = Length - (FullBlocks * BlockSize),
-    OneOrZero = case PieceLength rem BlockSize =:= 0 of
-        true  -> 0;
-        false -> 1
-    end,
-    NumBlocks = (PieceLength div BlockSize) + OneOrZero,
-    PieceBlocks = FullBlocks rem NumBlocks,
-    PieceIndex = PieceCount - 1,
-    {PieceIndex, PieceBlocks, LastBlockSize}.

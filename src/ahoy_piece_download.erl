@@ -38,7 +38,7 @@ init([TorrentDownload, PieceIndex, PieceLength, Peer, LastPiece]) ->
     {LastPieceIndex, _, _} = LastPiece,
     {ok, Piece} = case PieceIndex =:= LastPieceIndex of
         true ->
-            ahoy_piece:start_link(PieceLength, ?BLOCK_SIZE, LastPiece);
+            ahoy_piece:start_link(PieceLength, LastPiece);
         false ->
             ahoy_piece:start_link(PieceLength)
     end,
@@ -56,8 +56,8 @@ handle_call(_Request, _From, State) ->
 
 handle_cast(request, State=#state{piece_index=PieceIndex, piece=Piece, peer=Peer}) ->
     case ahoy_piece:pop_missing_block(Piece) of
-        {ok, {{BlockIndex, _}, BlockSize}} ->
-            ahoy_peer:download(Peer, self(), PieceIndex, BlockIndex, BlockSize);
+        {ok, {{BlockOffset, _}, BlockSize}} ->
+            ahoy_peer:download(Peer, self(), PieceIndex, BlockOffset, BlockSize);
         false ->
             ok
     end,
