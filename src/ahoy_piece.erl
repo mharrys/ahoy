@@ -97,17 +97,27 @@ init([PieceLength, BlockSize, false]) ->
     Missing = [{X, empty} || X <- lists:seq(0, NumBlocks - 1)],
     Pending = [],
     Completed = [],
-    State = #state{block_size = BlockSize, num_blocks = NumBlocks,
-        missing = Missing, pending = Pending, completed = Completed,
-        last_block_size = false},
+    State = #state{
+        block_size = BlockSize,
+        num_blocks = NumBlocks,
+        missing = Missing,
+        pending = Pending,
+        completed = Completed,
+        last_block_size = false
+    },
     {ok, State};
 init([_, BlockSize, {_, NumBlocks, LastBlockSize}]) ->
     Missing = [{X, empty} || X <- lists:seq(0, NumBlocks)],
     Pending = [],
     Completed = [],
-    State = #state{block_size = BlockSize, num_blocks = NumBlocks,
-        missing = Missing, pending = Pending, completed = Completed,
-        last_block_size = LastBlockSize},
+    State = #state{
+        block_size = BlockSize,
+        num_blocks = NumBlocks,
+        missing = Missing,
+        pending = Pending,
+        completed = Completed,
+        last_block_size = LastBlockSize
+    },
     {ok, State}.
 
 handle_call(pop, _From, State=#state{missing=[]}) ->
