@@ -34,7 +34,6 @@
 -type piece_stat() :: pid().
 -type piece_download() :: pid().
 -type piece_index() :: non_neg_integer().
--type bitfield() :: pid().
 -type download_key() :: {piece_index(), block_offset()}.
 -type download() :: {download_key(), piece_download(), block_size()}.
 -type downloads() :: list(download()).
@@ -43,8 +42,8 @@
 -record(state, {conn :: peer_conn(),
                 info_hash :: info_hash(),
                 stat :: piece_stat(),
-                client_bitfield :: bitfield(),
-                remote_bitfield :: bitfield(),
+                client_bitfield :: ahoy_bitfield:bitfield(),
+                remote_bitfield :: ahoy_bitfield:bitfield(),
                 remote_bitfield_recv = false :: boolean(),
                 choke = true :: boolean(),
                 interested = false :: boolean(),
@@ -71,7 +70,7 @@ download(Ref, From, PieceIndex, BlockIndex, BlockSize) ->
     gen_fsm:send_event(Ref, {download, Download}).
 
 %% @doc Return bitfield process. 
--spec bitfield(peer()) -> bitfield().
+-spec bitfield(peer()) -> ahoy_bitfield:bitfield().
 bitfield(Ref) ->
     gen_fsm:sync_send_all_state_event(Ref, bitfield).
 

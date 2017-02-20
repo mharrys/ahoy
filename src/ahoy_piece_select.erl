@@ -20,12 +20,11 @@
          terminate/2,
          code_change/3]).
 
--type bitfield() :: pid().
 -type piece_stat() :: pid().
 -type piece_index() :: non_neg_integer().
 -type piece_indices() :: list(piece_index()).
 
--record(state, {bitfield :: bitfield(),
+-record(state, {bitfield :: ahoy_bitfield:bitfield(),
                 stat :: piece_stat(),
                 reserved :: list(piece_index())}).
 

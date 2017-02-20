@@ -17,7 +17,6 @@
          terminate/2,
          code_change/3]).
 
--type raw_bitfield() :: binary().
 -type piece_index() :: non_neg_integer().
 -type piece_count() :: {piece_index(), non_neg_integer()}.
 -type piece_counts() :: list(piece_count()).
@@ -28,7 +27,7 @@ start_link(PieceCount) ->
     gen_server:start_link(?MODULE, [PieceCount], []).
 
 %% @doc Count one at set pieces in specified raw bitfield.
--spec new_bitfield(pid(), raw_bitfield()) -> ok.
+-spec new_bitfield(pid(), ahoy_bitfield:raw_bitfield()) -> ok.
 new_bitfield(Pid, Bitfield) ->
     gen_server:cast(Pid, {bitfield, Bitfield}).
 
@@ -76,7 +75,7 @@ code_change(_OldVsn, State, _Extra) ->
     {ok, State}.
 
 %% Merge pieces with raw bitfield i.e. add count where bits are set in bitfield.
--spec merge(raw_bitfield(), piece_counts()) -> piece_counts().
+-spec merge(ahoy_bitfield:raw_bitfield(), piece_counts()) -> piece_counts().
 merge(Bitfield, Pieces) ->
     merge(Bitfield, Pieces, []).
 

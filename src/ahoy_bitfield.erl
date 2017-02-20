@@ -21,6 +21,10 @@
          replace/2,
          raw_bitfield/1]).
 
+-export_type([bitfield/0,
+              bitfield_index/0,
+              raw_bitfield/0]).
+
 -behaviour(gen_server).
 
 -export([init/1,
@@ -30,40 +34,45 @@
          terminate/2,
          code_change/3]).
 
+-type bitfield() :: pid().
+-type bitfield_index() :: non_neg_integer().
+-type raw_bitfield() :: binary().
+
 -record(state, {bitfield :: binary()}).
 
+%% @doc Start linked bitfield process.
 start_link(NumBits) ->
     gen_server:start_link(?MODULE, [NumBits], []).
 
 %% @doc Set the nth index in the bitfield.
--spec set(pid(), non_neg_integer()) -> ok.
-set(Pid, Index) ->
-    gen_server:cast(Pid, {set, Index}).
+-spec set(bitfield(), bitfield_index()) -> ok.
+set(Ref, Index) ->
+    gen_server:cast(Ref, {set, Index}).
 
 %% @doc Validate if the nth index in the bitfield is set.
--spec is_set(pid(), non_neg_integer()) -> boolean().
-is_set(Pid, Index) ->
-    gen_server:call(Pid, {is_set, Index}).
+-spec is_set(bitfield(), bitfield_index()) -> boolean().
+is_set(Ref, Index) ->
+    gen_server:call(Ref, {is_set, Index}).
 
 %% @doc True if no bit is set, false otherwise.
--spec is_empty(pid()) -> boolean().
-is_empty(Pid) ->
-    gen_server:call(Pid, is_empty).
+-spec is_empty(bitfield()) -> boolean().
+is_empty(Ref) ->
+    gen_server:call(Ref, is_empty).
 
 %% @doc Replace raw bitfield with specified raw bitfield.
--spec replace(pid(), binary()) -> ok.
-replace(Pid, Bitfield) ->
-    gen_server:cast(Pid, {replace, Bitfield}).
+-spec replace(bitfield(), raw_bitfield()) -> ok.
+replace(Ref, RawBitfield) ->
+    gen_server:cast(Ref, {replace, RawBitfield}).
 
 %% @doc Return raw bitfield.
--spec raw_bitfield(pid()) -> binary().
-raw_bitfield(Pid) ->
-    gen_server:call(Pid, raw_bitfield).
+-spec raw_bitfield(bitfield()) -> raw_bitfield().
+raw_bitfield(Ref) ->
+    gen_server:call(Ref, raw_bitfield).
 
 init([NumBits]) ->
     Align = round(NumBits / 8) * 8,
     Bitfield = <<0:Align>>,
-    State = #state{bitfield = Bitfield},
+    State = #state{bitfield=Bitfield},
     {ok, State}.
 
 handle_call({is_set, Index}, _From, State=#state{bitfield=Bitfield}) ->
@@ -80,13 +89,13 @@ handle_call(_Request, _From, State) ->
 
 handle_cast({set, Index}, State=#state{bitfield=Bitfield}) ->
     <<Pad:Index, _:1, T/bitstring>> = Bitfield,
-    NewBitfield = <<Pad:Index, 1:1, T/bitstring>>,
-    NewState = State#state{bitfield=NewBitfield},
-    {noreply, NewState};
-handle_cast({replace, NewBitfield}, State=#state{bitfield=Bitfield}) ->
-    true = bit_size(NewBitfield) =:= bit_size(Bitfield),
-    NewState = State#state{bitfield=NewBitfield},
-    {noreply, NewState};
+    Bitfield2 = <<Pad:Index, 1:1, T/bitstring>>,
+    State2 = State#state{bitfield=Bitfield2},
+    {noreply, State2};
+handle_cast({replace, Bitfield2}, State=#state{bitfield=Bitfield}) ->
+    true = bit_size(Bitfield2) =:= bit_size(Bitfield),
+    State2 = State#state{bitfield=Bitfield2},
+    {noreply, State2};
 handle_cast(_Msg, State) ->
     {noreply, State}.
 
@@ -99,6 +108,7 @@ terminate(_Reason, _State) ->
 code_change(_OldVsn, State, _Extra) ->
     {ok, State}.
 
+%% Validate if binary consist only of zeroes.
 only_zero(<<>>) ->
     true;
 only_zero(<<0:8, T/binary>>) ->

@@ -27,7 +27,6 @@
 
 -type peer_conn() :: pid().
 -type peer() :: pid().
--type bitfield() :: pid().
 -type info_hash() :: binary().
 -type socket() :: gen_tcp:socket().
 -type data() :: binary().
@@ -51,7 +50,7 @@ send_handshake(Ref, InfoHash) ->
     send(Ref, Msg).
 
 %% @doc Send bitfield iff at least one piece is downloaded.
--spec send_bitfield(peer_conn(), bitfield()) -> ok.
+-spec send_bitfield(peer_conn(), ahoy_bitfield:bitfield()) -> ok.
 send_bitfield(Ref, Bitfield) ->
     case ahoy_bitfield:is_empty(Bitfield) of
         true ->
