@@ -18,9 +18,8 @@
 
 -type peer() :: pid().
 -type peers() :: list(peer()).
--type piece_index() :: non_neg_integer().
--type piece_indices() :: list(piece_index()).
--type peer_selection() :: {piece_index(), peer()}.
+-type piece_indices() :: list(ahoy_piece:piece_index()).
+-type peer_selection() :: {ahoy_piece:piece_index(), peer()}.
 -type peer_selections() :: list(peer_selection()).
 
 -record(state, {peers :: peers()}).
@@ -86,7 +85,7 @@ find_selections([PieceIndex|PieceIndices], Peers, Selections, Unmatched) ->
             find_selections(PieceIndices, Peers, Selections2, Unmatched)
     end.
 
--spec find_selection(piece_index(), peers()) -> peer_selection() | false.
+-spec find_selection(ahoy_piece:piece_index(), peers()) -> peer_selection() | false.
 find_selection(_PieceIndex, []) ->
     false;
 find_selection(PieceIndex, [Peer|Peers]) ->

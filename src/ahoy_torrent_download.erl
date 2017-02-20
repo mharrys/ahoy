@@ -19,11 +19,7 @@
 -type torrent() :: pid().
 -type peer_select() :: pid().
 -type piece_select() :: pid().
--type piece_length() :: non_neg_integer().
--type piece_index() :: non_neg_integer().
--type piece() :: pid().
--type raw_piece() :: binary().
--type download() :: {piece_index(), piece()}.
+-type download() :: {ahoy_piece:piece_index(), ahoy_piece:piece()}.
 -type downloads() :: list(download()).
 -type write() :: download().
 -type writes() :: list(write()).
@@ -32,7 +28,7 @@
 -record(state, {torrent :: torrent(),
                 peer_select :: peer_select(),
                 piece_select :: piece_select(),
-                piece_length :: piece_length(),
+                piece_length :: ahoy_piece:piece_length(),
                 last_piece,
                 downloads :: downloads(),
                 writes :: writes()}).
@@ -41,12 +37,12 @@ start_link(Torrent, PeerSelect, PieceSelect, PieceInfo) ->
     gen_server:start_link(?MODULE, [Torrent, PeerSelect, PieceSelect, PieceInfo], []).
 
 %% @doc Notify that download of piece is completed.
--spec completed_piece_download(pid(), piece_index(), raw_piece()) -> ok.
+-spec completed_piece_download(pid(), ahoy_piece:piece_index(), ahoy_piece:raw_piece()) -> ok.
 completed_piece_download(Pid, PieceIndex, RawPiece) ->
     gen_server:cast(Pid, {completed_download, PieceIndex, RawPiece}).
 
 %% @doc Notify that writing of piece to disk is completed.
--spec completed_piece_write(pid(), piece_index(), write_result()) -> ok.
+-spec completed_piece_write(pid(), ahoy_piece:piece_index(), write_result()) -> ok.
 completed_piece_write(Pid, PieceIndex, Result) ->
     gen_server:cast(Pid, {completed_write, PieceIndex, Result}).
 

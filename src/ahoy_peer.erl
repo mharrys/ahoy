@@ -33,9 +33,8 @@
 -type info_hash() :: binary().
 -type piece_stat() :: pid().
 -type piece_download() :: pid().
--type piece_index() :: non_neg_integer().
--type download_key() :: {piece_index(), block_offset()}.
--type download() :: {download_key(), piece_download(), block_size()}.
+-type download_key() :: {ahoy_piece:piece_index(), ahoy_piece:block_offset()}.
+-type download() :: {download_key(), piece_download(), ahoy_piece:block_size()}.
 -type downloads() :: list(download()).
 -type pending() :: list(download()).
 
@@ -63,7 +62,7 @@ peer_message(Ref, Message) ->
     gen_fsm:send_event(Ref, Message).
 
 %% @doc Request to download block in piece from remote peer.
--spec download(peer(), piece_download(), piece_index(), block_index(), block_size()) -> ok.
+-spec download(peer(), piece_download(), ahoy_piece:piece_index(), ahoy_piece:block_index(), ahoy_piece:block_size()) -> ok.
 download(Ref, From, PieceIndex, BlockIndex, BlockSize) ->
     BlockOffset = BlockIndex * ?BLOCK_SIZE,
     Download = {{PieceIndex, BlockOffset}, From, BlockSize},
@@ -200,7 +199,7 @@ fold_pending(Conn) ->
     end.
 
 %% Pop request from existing request (if pending) and notify about completion.
--spec complete_download(piece_index(), block_offset(), block_data(), downloads()) -> downloads().
+-spec complete_download(ahoy_piece:piece_index(), ahoy_piece:block_offset(), ahoy_piece:block_data(), downloads()) -> downloads().
 complete_download(PieceIndex, BlockOffset, BlockData, Downloads) ->
     Key = {PieceIndex, BlockOffset},
     case lists:keytake(Key, 1, Downloads) of

@@ -21,6 +21,16 @@
          add_completed_block/2,
          raw_piece/1]).
 
+-export_type([piece/0,
+              piece_index/0,
+              piece_length/0,
+              raw_piece/0,
+              block_index/0,
+              block_offset/0,
+              block_size/0,
+              block_data/0,
+              block/0]).
+
 -behaviour(gen_server).
 
 -export([init/1,
@@ -31,6 +41,17 @@
          code_change/3]).
 
 -include_lib("ahoy_block.hrl").
+
+-type piece() :: pid().
+-type piece_index() :: non_neg_integer().
+-type piece_length() :: non_neg_integer().
+-type raw_piece() :: binary().
+
+-type block_index() :: non_neg_integer().
+-type block_offset() :: non_neg_integer().
+-type block_size() :: non_neg_integer().
+-type block_data() :: binary() | atom().
+-type block() :: {block_index(), block_data()}.
 
 -record(state, {block_size :: block_size(),
                 num_blocks :: non_neg_integer(),
@@ -53,19 +74,19 @@ start_link(PieceLength, BlockSize, LastPiece) ->
 
 %% @doc Return tuple of the next missing block along with the expected block
 %% size. False if there are no more missing blocks.
--spec pop_missing_block(pid()) -> {ok, {block(), block_size()}} | false.
-pop_missing_block(Pid) ->
-    gen_server:call(Pid, pop).
+-spec pop_missing_block(piece()) -> {ok, {block(), block_size()}} | false.
+pop_missing_block(Ref) ->
+    gen_server:call(Ref, pop).
 
 %% @doc Add missing block with the missing data as completed.
--spec add_completed_block(pid(), block()) -> ok.
-add_completed_block(Pid, Block) ->
-    gen_server:cast(Pid, {block, Block}).
+-spec add_completed_block(piece(), block()) -> ok.
+add_completed_block(Ref, Block) ->
+    gen_server:cast(Ref, {block, Block}).
 
 %% @doc Return all blocks as a binary. False if not all blocks are completed.
--spec raw_piece(pid()) -> {ok, binary()} | false.
-raw_piece(Pid) ->
-    gen_server:call(Pid, raw_piece).
+-spec raw_piece(piece()) -> {ok, raw_piece()} | false.
+raw_piece(Ref) ->
+    gen_server:call(Ref, raw_piece).
 
 init([PieceLength, BlockSize, false]) ->
     OneOrZero = case PieceLength rem BlockSize =:= 0 of

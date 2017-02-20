@@ -15,13 +15,11 @@
 -include_lib("ahoy_block.hrl").
 
 -type torrent_download() :: pid().
--type piece() :: pid().
 -type peer() :: pid().
--type piece_index() :: non_neg_integer().
 
 -record(state, {torrent_download :: torrent_download(),
-                piece_index :: piece_index(),
-                piece :: piece(),
+                piece_index :: ahoy_piece:piece_index(),
+                piece :: ahoy_piece:piece(),
                 peer :: peer(),
                 last_piece}).
 
@@ -29,7 +27,7 @@ start_link(TorrentDownload, PieceIndex, PieceLength, Peer, LastPiece) ->
     gen_server:start_link(?MODULE, [TorrentDownload, PieceIndex, PieceLength, Peer, LastPiece], []).
 
 %% @doc Download request response with completed block data.
--spec completed_block(pid(), piece_index(), block()) -> ok.
+-spec completed_block(pid(), ahoy_piece:piece_index(), ahoy_piece:block()) -> ok.
 completed_block(Pid, PieceIndex, Block) ->
     gen_server:cast(Pid, {completed, PieceIndex, Block}).
 

@@ -17,8 +17,7 @@
          terminate/2,
          code_change/3]).
 
--type piece_index() :: non_neg_integer().
--type piece_count() :: {piece_index(), non_neg_integer()}.
+-type piece_count() :: {ahoy_piece:piece_index(), non_neg_integer()}.
 -type piece_counts() :: list(piece_count()).
 
 -record(state, {pieces :: piece_counts()}).
@@ -32,7 +31,7 @@ new_bitfield(Pid, Bitfield) ->
     gen_server:cast(Pid, {bitfield, Bitfield}).
 
 %% @doc Count one at specified piece index.
--spec new_piece(pid(), piece_index()) -> ok.
+-spec new_piece(pid(), ahoy_piece:piece_index()) -> ok.
 new_piece(Pid, PieceIndex) ->
     gen_server:cast(Pid, {piece, PieceIndex}).
 
@@ -87,7 +86,7 @@ merge(<<1:1, T1/bitstring>>, [{Index, Count}|T2], Acc) ->
     merge(T1, T2, [{Index, Count + 1} | Acc]).
 
 %% Increment count at index.
--spec inc(piece_index(), list(piece_count())) -> list(piece_count()).
+-spec inc(ahoy_piece:piece_index(), list(piece_count())) -> list(piece_count()).
 inc(PieceIndex, Pieces) ->
     inc(PieceIndex, Pieces, []).
 
