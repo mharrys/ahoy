@@ -31,7 +31,6 @@
 -type info_hash() :: binary().
 -type socket() :: gen_tcp:socket().
 -type data() :: binary().
--type packet() :: list() | binary().
 
 -record(state, {peer :: peer(),
                 socket :: socket(),
@@ -41,7 +40,7 @@ start_link(Peer, Address) ->
     gen_server:start_link(?MODULE, [Peer, Address], [{timeout, ?INIT_TIMEOUT}]).
 
 %% @doc Send message over socket.
--spec send(peer_conn(), packet()) -> ok.
+-spec send(peer_conn(), data()) -> ok.
 send(Ref, Msg) ->
     gen_server:call(Ref, {send, Msg}).
 
