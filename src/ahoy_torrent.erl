@@ -28,7 +28,8 @@
                 peer_select,
                 torrent_download,
                 tracker,
-                active_peers}).
+                active_peers,
+                peer_sup}).
 
 start_link(Path) ->
     gen_server:start_link(?MODULE, [Path], []).
@@ -61,6 +62,7 @@ init([Path]) ->
         PieceSelect,
         PieceInfo
     ),
+    {ok, PeerSup} = ahoy_peer_sup:start_link(),
     {ok, Tracker} = ahoy_tracker:start_link(self(), Meta, ?PORT),
     State = #state{
         meta = Meta,
@@ -71,7 +73,8 @@ init([Path]) ->
         peer_select = PeerSelect,
         torrent_download = TorrentDownload,
         tracker = Tracker,
-        active_peers = [{{127,0,0,1}, 6881}]
+        active_peers = [],
+        peer_sup = PeerSup
     },
     {ok, State}.
 
@@ -80,7 +83,7 @@ handle_call(_Request, _From, State) ->
 
 handle_cast({peers, PeerAddresses}, State=#state{active_peers=ActivePeers}) ->
     Peers2 = lists:filter(fun(Address) -> not(lists:member(Address, ActivePeers)) end, PeerAddresses),
-    [start_peer(State, Address) || Address <- Peers2],
+    [start_peer(Address, State) || Address <- Peers2],
     ActivePeers2 = ActivePeers ++ Peers2,
     State2 = State#state{active_peers=ActivePeers2},
     {noreply, State2};
@@ -117,11 +120,15 @@ code_change(_OldVsn, State, _Extra) ->
     {ok, State}.
 
 %% Add started peer process to peer selection process.
-start_peer(#state{meta=Meta, peer_select=Select, piece_stat=Stat, bitfield=Bitfield}, Address) ->
+start_peer(Address, #state{meta=Meta,
+                           peer_select=Select,
+                           piece_stat=Stat,
+                           bitfield=Bitfield,
+                           peer_sup=PeerSup}) ->
     PieceCount = Meta#metainfo.info#info.piece_count,
     InfoHash = Meta#metainfo.info_hash,
     {ok, RemoteBitfield} = ahoy_bitfield:start_link(PieceCount),
-    case ahoy_peer:start_link(Address, InfoHash, Stat, Bitfield, RemoteBitfield) of
+    case ahoy_peer_sup:start_child(PeerSup, Address, InfoHash, Stat, Bitfield, RemoteBitfield) of
         {ok, Peer} ->
             ahoy_peer_select:add_peer(Select, Peer);
         _ ->
