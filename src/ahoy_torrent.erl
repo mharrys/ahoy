@@ -48,9 +48,8 @@ init([Path]) ->
     Length = Meta#metainfo.info#info.length,
     PieceCount = Meta#metainfo.info#info.piece_count,
     PieceLength = Meta#metainfo.info#info.piece_length,
-    PieceFactory = ahoy_piece:factory(Length, PieceCount, PieceLength),
-    DownloadFactory = ahoy_piece_download:factory(PieceFactory),
-
+    CreatePiece = ahoy_piece:factory(Length, PieceCount, PieceLength),
+    CreatePieceDl = ahoy_piece_download:factory(CreatePiece),
     {ok, File} = ahoy_file:start_link(Name),
     {ok, Bitfield} = ahoy_bitfield:start_link(PieceCount),
     {ok, PieceStat} = ahoy_piece_stat:start_link(PieceCount),
@@ -60,7 +59,7 @@ init([Path]) ->
         self(),
         PeerSelect,
         PieceSelect,
-        DownloadFactory
+        CreatePieceDl
     ),
     {ok, PeerSup} = ahoy_peer_sup:start_link(),
     {ok, Tracker} = ahoy_tracker:start_link(self(), Meta, ?PORT),
