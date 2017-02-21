@@ -1,6 +1,7 @@
 -module(ahoy_piece_download).
 
--export([start_link/5,
+-export([factory/1,
+         start_link/4,
          completed_block/3]).
 
 -export_type([piece_dl/0]).
@@ -24,22 +25,22 @@
                 peer :: peer(),
                 last_piece}).
 
-start_link(TorrentDownload, PieceIndex, PieceLength, Peer, LastPiece) ->
-    gen_server:start_link(?MODULE, [TorrentDownload, PieceIndex, PieceLength, Peer, LastPiece], []).
+%% @doc Factory function for creating a piece download.
+factory(PieceFactory) ->
+    fun (TorrentDownload, PieceIndex, Peer) ->
+        {ok, Piece} = PieceFactory(PieceIndex),
+        start_link(TorrentDownload, PieceIndex, Piece, Peer)
+    end.
+
+start_link(TorrentDownload, PieceIndex, Piece, Peer) ->
+    gen_server:start_link(?MODULE, [TorrentDownload, PieceIndex, Piece, Peer], []).
 
 %% @doc Download request response with completed block data.
 -spec completed_block(piece_dl(), ahoy_piece:piece_index(), ahoy_piece:block()) -> ok.
 completed_block(Ref, PieceIndex, Block) ->
     gen_server:cast(Ref, {completed, PieceIndex, Block}).
 
-init([TorrentDownload, PieceIndex, PieceLength, Peer, LastPiece]) ->
-    {LastPieceIndex, _, _} = LastPiece,
-    {ok, Piece} = case PieceIndex =:= LastPieceIndex of
-        true ->
-            ahoy_piece:start_link(PieceLength, LastPiece);
-        false ->
-            ahoy_piece:start_link(PieceLength)
-    end,
+init([TorrentDownload, PieceIndex, Piece, Peer]) ->
     State = #state{
         torrent_download = TorrentDownload,
         piece_index = PieceIndex,
@@ -54,7 +55,7 @@ handle_call(_Request, _From, State) ->
 
 handle_cast(request, State=#state{piece_index=PieceIndex, piece=Piece, peer=Peer}) ->
     case ahoy_piece:pop_missing_block(Piece) of
-        {ok, {{BlockOffset, _}, BlockSize}} ->
+        {ok, {BlockOffset, BlockSize, _}} ->
             ahoy_peer:download(Peer, self(), PieceIndex, BlockOffset, BlockSize);
         false ->
             ok
@@ -73,10 +74,10 @@ handle_cast({completed, PieceIndex, Block}, State=#state{torrent_download=Downlo
     end,
     {noreply, State};
 handle_cast(_Msg, State) ->
-    {noreply, State}.
+    {stop, "Unknown message", State}.
 
 handle_info(_Info, State) ->
-    {noreply, State}.
+    {stop, "Unknown message", State}.
 
 terminate(_Reason, _State) ->
     ok.

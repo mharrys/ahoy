@@ -62,10 +62,10 @@ handle_cast({piece, PieceIndex}, State=#state{pieces=Pieces}) ->
     State2 = State#state{pieces=Pieces2},
     {noreply, State2};
 handle_cast(_Msg, State) ->
-    {noreply, State}.
+    {stop, "Unknown message", State}.
 
 handle_info(_Info, State) ->
-    {noreply, State}.
+    {stop, "Unknown message", State}.
 
 terminate(_Reason, _State) ->
     ok.

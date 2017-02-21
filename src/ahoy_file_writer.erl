@@ -38,10 +38,10 @@ handle_call(_Request, _From, State) ->
     {reply, ok, State}.
 
 handle_cast(_Msg, State) ->
-    {noreply, State}.
+    {stop, "Unknown message", State}.
 
 handle_info(_Info, State) ->
-    {noreply, State}.
+    {stop, "Unknown message", State}.
 
 terminate(_Reason, #state{file=File}) ->
     file:close(File),

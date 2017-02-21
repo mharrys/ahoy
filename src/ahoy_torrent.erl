@@ -48,8 +48,9 @@ init([Path]) ->
     Length = Meta#metainfo.info#info.length,
     PieceCount = Meta#metainfo.info#info.piece_count,
     PieceLength = Meta#metainfo.info#info.piece_length,
-    LastPiece = ahoy_piece:last_piece(Length, PieceCount, PieceLength),
-    PieceInfo = {PieceLength, LastPiece},
+    PieceFactory = ahoy_piece:factory(Length, PieceCount, PieceLength),
+    DownloadFactory = ahoy_piece_download:factory(PieceFactory),
+
     {ok, FileWriter} = ahoy_file_writer:start_link(Name),
     {ok, Bitfield} = ahoy_bitfield:start_link(PieceCount),
     {ok, PieceStat} = ahoy_piece_stat:start_link(PieceCount),
@@ -59,7 +60,7 @@ init([Path]) ->
         self(),
         PeerSelect,
         PieceSelect,
-        PieceInfo
+        DownloadFactory
     ),
     {ok, PeerSup} = ahoy_peer_sup:start_link(),
     {ok, Tracker} = ahoy_tracker:start_link(self(), Meta, ?PORT),
@@ -107,10 +108,10 @@ handle_cast({write, PieceIndex, RawPiece}, State=#state{meta=Meta,
     ahoy_torrent_download:completed_piece_write(TorrentDownload, PieceIndex, Result),
     {noreply, State};
 handle_cast(_Msg, State) ->
-    {noreply, State}.
+    {stop, "Unknown message", State}.
 
 handle_info(_Info, State) ->
-    {noreply, State}.
+    {stop, "Unknown message", State}.
 
 terminate(_Reason, _State) ->
     ok.

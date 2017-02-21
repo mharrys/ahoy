@@ -103,7 +103,7 @@ handle_call(_Request, _From, State) ->
     {reply, ok, State}.
 
 handle_cast(_Msg, State) ->
-    {noreply, State}.
+    {stop, "Unknown message", State}.
 
 handle_info({tcp, Socket, Bin}, State=#state{peer=Peer, data=Prev}) ->
     Data = list_to_binary([Prev, Bin]),

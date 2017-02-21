@@ -65,10 +65,10 @@ handle_cast({unreserve, PieceIndices}, State=#state{reserved=Reserved}) ->
     State2 = State#state{reserved=Reserved2},
     {noreply, State2};
 handle_cast(_Msg, State) ->
-    {noreply, State}.
+    {stop, "Unknown message", State}.
 
 handle_info(_Info, State) ->
-    {noreply, State}.
+    {stop, "Unknown message", State}.
 
 terminate(_Reason, _State) ->
     ok.

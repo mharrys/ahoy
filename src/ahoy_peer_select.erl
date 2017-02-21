@@ -53,10 +53,10 @@ handle_cast({add_peer, Peer}, State=#state{peers=Peers}) ->
     State2 = State#state{peers=Peers2},
     {noreply, State2};
 handle_cast(_Msg, State) ->
-    {noreply, State}.
+    {stop, "Unknown message", State}.
 
 handle_info(_Info, State) ->
-    {noreply, State}.
+    {stop, "Unknown message", State}.
 
 terminate(_Reason, _State) ->
     ok.

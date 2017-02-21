@@ -52,10 +52,10 @@ handle_cast(update, State=#state{torrent=Torrent, meta=Meta, port=Port,
     ahoy_torrent:update_tracker_peers(Torrent, PeerAddresses),
     {noreply, State};
 handle_cast(_Msg, State) ->
-    {noreply, State}.
+    {stop, "Unknown message", State}.
 
 handle_info(_Info, State) ->
-    {noreply, State}.
+    {stop, "Unknown message", State}.
 
 terminate(_Reason, _State) ->
     ok.

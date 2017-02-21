@@ -28,13 +28,12 @@
 -record(state, {torrent :: torrent(),
                 peer_select :: peer_select(),
                 piece_select :: piece_select(),
-                piece_length :: ahoy_piece:piece_length(),
-                last_piece,
+                factory,
                 downloads :: downloads(),
                 writes :: writes()}).
 
-start_link(Torrent, PeerSelect, PieceSelect, PieceInfo) ->
-    gen_server:start_link(?MODULE, [Torrent, PeerSelect, PieceSelect, PieceInfo], []).
+start_link(Torrent, PeerSelect, PieceSelect, DownloadFactory) ->
+    gen_server:start_link(?MODULE, [Torrent, PeerSelect, PieceSelect, DownloadFactory], []).
 
 %% @doc Notify that download of piece is completed.
 -spec completed_piece_download(pid(), ahoy_piece:piece_index(), ahoy_piece:raw_piece()) -> ok.
@@ -46,14 +45,12 @@ completed_piece_download(Pid, PieceIndex, RawPiece) ->
 completed_piece_write(Pid, PieceIndex, Result) ->
     gen_server:cast(Pid, {completed_write, PieceIndex, Result}).
 
-init([Torrent, PeerSelect, PieceSelect, PieceInfo]) ->
-    {PieceLength, LastPiece} = PieceInfo,
+init([Torrent, PeerSelect, PieceSelect, DownloadFactory]) ->
     State = #state{
         torrent = Torrent,
         peer_select = PeerSelect,
         piece_select = PieceSelect,
-        piece_length = PieceLength,
-        last_piece = LastPiece,
+        factory = DownloadFactory,
         downloads = [],
         writes = []
     },
@@ -66,15 +63,14 @@ handle_call(_Request, _From, State) ->
 handle_cast(update, State=#state{downloads=Downloads,
                                  piece_select=PieceSelect,
                                  peer_select=PeerSelect,
-                                 piece_length=PieceLength,
-                                 last_piece=LastPiece}) ->
+                                 factory=Factory}) ->
     delay_update(),
     N = length(Downloads),
     AvailableSlots = ?NUM_DOWNLOADS - N,
     PieceIndices = ahoy_piece_select:reserve(PieceSelect, AvailableSlots),
     {PeerSelections, Remaining} = ahoy_peer_select:select(PeerSelect, PieceIndices),
     ahoy_piece_select:unreserve(PieceSelect, Remaining),
-    Downloads2 = Downloads ++ create_downloads(PeerSelections, PieceLength, LastPiece),
+    Downloads2 = Downloads ++ create_downloads(PeerSelections, Factory),
     State2 = State#state{downloads=Downloads2},
     {noreply, State2};
 handle_cast({completed_download, PieceIndex, RawPiece}, State=#state{torrent=Torrent,
@@ -101,10 +97,10 @@ handle_cast({completed_write, PieceIndex, false}, State=#state{writes=Writes,
     State2 = State#state{writes=Writes2},
     {noreply, State2};
 handle_cast(_Msg, State) ->
-    {noreply, State}.
+    {stop, "Unknown message", State}.
 
 handle_info(_Info, State) ->
-    {noreply, State}.
+    {stop, "Unknown message", State}.
 
 terminate(_Reason, _State) ->
     ok.
@@ -116,10 +112,10 @@ delay_update() ->
     timer:apply_after(?UPDATE_INTERVAL, gen_server, cast, [self(), update]).
 
 %% Create piece download processes from peer matches.
-create_downloads(PeerSelections, PieceLength, LastPiece) ->
-    [create_download(PieceIndex, PieceLength, Peer, LastPiece) || {PieceIndex, Peer} <- PeerSelections].
+create_downloads(PeerSelections, Factory) ->
+    [create_download(PieceIndex, Peer, Factory) || {PieceIndex, Peer} <- PeerSelections].
 
-create_download(PieceIndex, PieceLength, Peer, LastPiece) ->
+create_download(PieceIndex, Peer, Factory) ->
     io:format("Begin download of ~p~n", [PieceIndex]),
-    {ok, PieceDownload} = ahoy_piece_download:start_link(self(), PieceIndex, PieceLength, Peer, LastPiece),
+    {ok, PieceDownload} = Factory(self(), PieceIndex, Peer),
     {PieceIndex, PieceDownload}.

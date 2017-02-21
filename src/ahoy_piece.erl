@@ -14,13 +14,12 @@
 %%% @end
 -module(ahoy_piece).
 
--export([start_link/1,
+-export([factory/3,
+         start_link/1,
          start_link/2,
-         start_link/3,
          pop_missing_block/1,
          add_completed_block/2,
-         raw_piece/1,
-         last_piece/3]).
+         raw_piece/1]).
 
 -export_type([piece/0,
               piece_index/0,
@@ -50,30 +49,38 @@
 -type block_offset() :: non_neg_integer().
 -type block_size() :: non_neg_integer().
 -type block_data() :: binary() | atom().
--type block() :: {block_offset(), block_data()}.
+-type block() :: {block_offset(), block_size(), block_data()}.
 
--record(state, {block_size :: block_size(),
-                num_blocks :: non_neg_integer(),
-                missing :: list(block()),
+-record(state, {missing :: list(block()),
                 pending :: list(block()),
-                completed :: list(block()),
-                last_block_size}).
+                completed :: list(block())}).
 
-%% @doc Create a new piece of specified piece length in bytes.
-start_link(PieceLength) ->
-    start_link(PieceLength, false).
+%% @doc Factory function for creating a piece.
+factory(TorrentLength, PieceCount, PieceLength) ->
+    Blocks = gen_blocks(PieceLength, ?BLOCK_SIZE),
+    fun (PieceIndex) ->
+        Blocks2 = case PieceIndex =:= (PieceCount - 1) of
+            true ->
+                gen_blocks_last(TorrentLength, PieceLength, ?BLOCK_SIZE);
+            false ->
+                Blocks
+        end,
+        start_link(Blocks2)
+    end.
 
-%% @doc Create a new piece of specified piece length and block size in bytes
-start_link(PieceLength, LastPiece) ->
-    start_link(PieceLength, LastPiece, ?BLOCK_SIZE).
+%% @doc Create a new piece from blocks.
+start_link(Blocks) ->
+    gen_server:start_link(?MODULE, [Blocks], []).
 
-%% @doc Create the last piece, which is a special case.
-start_link(PieceLength, LastPiece, BlockSize) ->
-    gen_server:start_link(?MODULE, [PieceLength, LastPiece, BlockSize], []).
+%% @doc Create a new piece for a piece of specified length and with specified
+%% block size.
+start_link(PieceLength, BlockSize) ->
+    Blocks = gen_blocks(PieceLength, BlockSize),
+    start_link(Blocks).
 
 %% @doc Return tuple of the next missing block along with the expected block
 %% size. False if there are no more missing blocks.
--spec pop_missing_block(piece()) -> {ok, {block(), block_size()}} | false.
+-spec pop_missing_block(piece()) -> {ok, block()} | false.
 pop_missing_block(Ref) ->
     gen_server:call(Ref, pop).
 
@@ -87,61 +94,20 @@ add_completed_block(Ref, Block) ->
 raw_piece(Ref) ->
     gen_server:call(Ref, raw_piece).
 
-%% @doc Return block info on last piece which does not always need all
-%% full blocks.
-last_piece(Length, PieceCount, PieceLength) ->
-    BlockSize = ?BLOCK_SIZE,
-    FullBlocks = Length div BlockSize,
-    LastBlockSize = Length - (FullBlocks * BlockSize),
-    NumBlocks = num_blocks(PieceLength, BlockSize),
-    PieceBlocks = FullBlocks rem NumBlocks,
-    PieceIndex = PieceCount - 1,
-    {PieceIndex, PieceBlocks, LastBlockSize}.
-
-init([PieceLength, false, BlockSize]) ->
-    NumBlocks = num_blocks(PieceLength, BlockSize),
-    Missing = [{X * BlockSize, empty} || X <- lists:seq(0, NumBlocks - 1)],
-    Pending = [],
-    Completed = [],
-    State = #state{
-        block_size = BlockSize,
-        num_blocks = NumBlocks,
-        missing = Missing,
-        pending = Pending,
-        completed = Completed,
-        last_block_size = false
-    },
-    {ok, State};
-init([_, {_, NumBlocks, LastBlockSize}, BlockSize]) ->
-    Missing = [{X * BlockSize, empty} || X <- lists:seq(0, NumBlocks)],
-    Pending = [],
-    Completed = [],
-    State = #state{
-        block_size = BlockSize,
-        num_blocks = NumBlocks,
-        missing = Missing,
-        pending = Pending,
-        completed = Completed,
-        last_block_size = LastBlockSize
-    },
+init([Blocks]) ->
+    State = #state{missing=Blocks, pending=[], completed=[]},
     {ok, State}.
 
 handle_call(pop, _From, State=#state{missing=[]}) ->
     Reply = false,
     {reply, Reply, State};
-handle_call(pop, _From, State=#state{block_size=BlockSize,
-                                     last_block_size=LastBlockSize,
-                                     missing=[Block|Missing],
-                                     pending=Pending}) ->
-    BlockSize2 = choose_block_size(BlockSize, LastBlockSize, Missing),
-    Reply = {ok, {Block, BlockSize2}},
+handle_call(pop, _From, State=#state{missing=Missing, pending=Pending}) ->
+    [Block|Missing2] = Missing,
+    Reply = {ok, Block},
     Pending2 = [Block|Pending],
-    State2 = State#state{missing=Missing, pending=Pending2},
+    State2 = State#state{missing=Missing2, pending=Pending2},
     {reply, Reply, State2};
-handle_call(raw_piece, _From, State=#state{missing=[],
-                                           pending=[],
-                                           completed=Completed}) ->
-
+handle_call(raw_piece, _From, State=#state{missing=[], pending=[], completed=Completed}) ->
     Piece = block_to_binary(Completed),
     Reply = {ok, Piece},
     {reply, Reply, State};
@@ -150,25 +116,23 @@ handle_call(raw_piece, _From, State) ->
 handle_call(_Request, _From, State) ->
     {reply, {error, unknown_call}, State}.
 
-handle_cast({block, {_, empty}}, State) ->
+handle_cast({block, {_, _, empty}}, State) ->
     {noreply, State};
-handle_cast({block, {BlockOffset, BlockData}}, State=#state{block_size=BlockSize,
-                                                           pending=Pending,
-                                                           completed=Completed}) ->
-    true = byte_size(BlockData) =< BlockSize,
+handle_cast({block, Block}, State=#state{pending=Pending, completed=Completed}) ->
+    {BlockOffset, BlockSize, _BlockData} = Block,
     State2 = case lists:keytake(BlockOffset, 1, Pending) of
-        {value, {BlockOffset, empty}, Pending2} ->
-            Completed2 = [{BlockOffset, BlockData}|Completed],
+        {value, {BlockOffset, BlockSize, empty}, Pending2} ->
+            Completed2 = [Block|Completed],
             State#state{pending=Pending2, completed=Completed2};
         _ ->
             State
     end,
     {noreply, State2};
 handle_cast(_Msg, State) ->
-    {noreply, State}.
+    {stop, "Unknown message", State}.
 
 handle_info(_Info, State) ->
-    {noreply, State}.
+    {stop, "Unknown message", State}.
 
 terminate(_Reason, _State) ->
     ok.
@@ -176,6 +140,27 @@ terminate(_Reason, _State) ->
 code_change(_OldVsn, State, _Extra) ->
     {ok, State}.
 
+%% Generate one block.
+gen_block(BlockIndex, BlockSize) ->
+    {BlockIndex * BlockSize, BlockSize, empty}.
+
+%% Generate blocks of specified size that is required to fill specified piece length.
+gen_blocks(PieceLength, BlockSize) ->
+    NumBlocks = num_blocks(PieceLength, BlockSize),
+    [gen_block(X, BlockSize) || X <- lists:seq(0, NumBlocks - 1)].
+
+%% Same as gen_blocks but for last piece.
+gen_blocks_last(TorrentLength, PieceLength, BlockSize) ->
+    NumFullBlocks = TorrentLength div BlockSize,
+    NumBlocks = num_blocks(PieceLength, BlockSize),
+    NumFullPieceBlocks = NumFullBlocks rem NumBlocks,
+    FullBlocks = [gen_block(X, BlockSize) || X <- lists:seq(0, NumFullPieceBlocks - 1)],
+    LastBlockIndex = NumFullPieceBlocks,
+    LastBlockSize = TorrentLength - (NumFullBlocks * BlockSize),
+    LastBlock = gen_block(LastBlockIndex, LastBlockSize),
+    FullBlocks ++ [LastBlock].
+
+%% Return minimum number of blocks of specified size to fill a piece of specified length.
 num_blocks(PieceLength, BlockSize) ->
     OneOrZero = case PieceLength rem BlockSize =:= 0 of
         true  -> 0;
@@ -189,16 +174,5 @@ block_to_binary(Blocks) ->
     lists:foldl(fun block_fold/2, <<>>, SortedBlocks).
 
 %% Function for folding blocks into binary.
-block_fold({_, X}, Acc) ->
+block_fold({_, _, X}, Acc) ->
     <<Acc/binary, X/binary>>.
-
-%% Return block size i.e. detect when this is the last block.
-choose_block_size(BlockSize, false, _Missing) ->
-    % is not last piece
-    BlockSize;
-choose_block_size(_BlockSize, LastBlockSize, []) ->
-    % is last piece and last block
-    LastBlockSize;
-choose_block_size(BlockSize, _LastBlockSize, _Missing) ->
-    % is last piece but not last block
-    BlockSize.

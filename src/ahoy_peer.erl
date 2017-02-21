@@ -199,8 +199,8 @@ fold_pending(Conn) ->
 complete_download(PieceIndex, BlockOffset, BlockData, Downloads) ->
     Key = {PieceIndex, BlockOffset},
     case lists:keytake(Key, 1, Downloads) of
-        {value, {Key, From, _BlockSize}, Downloads2} ->
-            Block = {BlockOffset, BlockData},
+        {value, {Key, From, BlockSize}, Downloads2} ->
+            Block = {BlockOffset, BlockSize, BlockData},
             ahoy_piece_download:completed_block(From, PieceIndex, Block),
             Downloads2;
         false ->
