@@ -5,16 +5,15 @@
 
 -include_lib("ahoy_metainfo.hrl").
 -include_lib("ahoy_peer_id.hrl").
--include_lib("ahoy_tracker_progress.hrl").
 -include_lib("ahoy_tracker_response.hrl").
 
 -type body() :: list(string()).
 
 %% @doc Encode HTTP GET request URL of active peers to a tracker.
--spec encode_request(metainfo(), port_number(), tracker_progress()) -> string().
+-spec encode_request(metainfo(), port_number(), ahoy_tracker_progress:tracker_progress()) -> string().
 encode_request(Meta, Port, Progress) ->
     #metainfo{announce=Announce, info_hash=InfoHash} = Meta,
-    #tracker_progress{uploaded=Up, downloaded=Down, left=Left} = Progress,
+    {Up, Down, Left} = ahoy_tracker_progress:progress(Progress),
     Fmt = "~s?info_hash=~s&peer_id=~s&port=~b&uploaded=~b&downloaded=~b&left=~b&compact=1",
     Args = [
         Announce,

@@ -88,6 +88,5 @@ create_downloads(PeerSelections, CreatePieceDl) ->
     [create_download(PieceIndex, Peer, CreatePieceDl) || {PieceIndex, Peer} <- PeerSelections].
 
 create_download(PieceIndex, Peer, CreatePieceDl) ->
-    io:format("Begin download of ~p~n", [PieceIndex]),
     {ok, PieceDownload} = CreatePieceDl(self(), PieceIndex, Peer),
     {PieceIndex, PieceDownload}.

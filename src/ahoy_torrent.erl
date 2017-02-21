@@ -26,6 +26,7 @@
                 piece_select,
                 peer_select,
                 torrent_download,
+                tracker_progress,
                 tracker,
                 active_peers,
                 peer_sup}).
@@ -62,7 +63,8 @@ init([Path]) ->
         CreatePieceDl
     ),
     {ok, PeerSup} = ahoy_peer_sup:start_link(),
-    {ok, Tracker} = ahoy_tracker:start_link(self(), Meta, ?PORT),
+    {ok, Progress} = ahoy_tracker_progress:start_link(Length),
+    {ok, Tracker} = ahoy_tracker:start_link(self(), Progress, Meta, ?PORT),
     State = #state{
         meta = Meta,
         file = File,
@@ -71,6 +73,7 @@ init([Path]) ->
         piece_select = PieceSelect,
         peer_select = PeerSelect,
         torrent_download = TorrentDownload,
+        tracker_progress = Progress,
         tracker = Tracker,
         active_peers = [],
         peer_sup = PeerSup
@@ -89,6 +92,7 @@ handle_cast({peers, PeerAddresses}, State=#state{active_peers=ActivePeers}) ->
 handle_cast({write, PieceIndex, RawPiece}, State=#state{meta=Meta,
                                                         file=File,
                                                         piece_select=PieceSelect,
+                                                        tracker_progress=Progress,
                                                         bitfield=Bitfield}) ->
     Pieces = Meta#metainfo.info#info.pieces,
     PieceLength = Meta#metainfo.info#info.piece_length,
@@ -98,10 +102,9 @@ handle_cast({write, PieceIndex, RawPiece}, State=#state{meta=Meta,
     case IsValid andalso IsWritten of
         true ->
             ahoy_bitfield:set(Bitfield, PieceIndex),
-            io:format("Piece ~p completed~n", [PieceIndex]);
+            ahoy_tracker_progress:downloaded(Progress, byte_size(RawPiece));
         false ->
-            ahoy_piece_select:unreserve(PieceSelect, [PieceIndex]),
-            io:format("Piece ~p is invalid~n", [PieceIndex])
+            ahoy_piece_select:unreserve(PieceSelect, [PieceIndex])
     end,
     {noreply, State};
 handle_cast(_Msg, State) ->
