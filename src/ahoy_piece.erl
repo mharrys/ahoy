@@ -142,7 +142,10 @@ code_change(_OldVsn, State, _Extra) ->
 
 %% Generate one block.
 gen_block(BlockIndex, BlockSize) ->
-    {BlockIndex * BlockSize, BlockSize, empty}.
+    gen_block(BlockIndex, BlockSize, BlockSize).
+
+gen_block(BlockIndex, BlockSize, BlockOffsetSize) ->
+    {BlockIndex * BlockOffsetSize, BlockSize, empty}.
 
 %% Generate blocks of specified size that is required to fill specified piece length.
 gen_blocks(PieceLength, BlockSize) ->
@@ -157,7 +160,7 @@ gen_blocks_last(TorrentLength, PieceLength, BlockSize) ->
     FullBlocks = [gen_block(X, BlockSize) || X <- lists:seq(0, NumFullPieceBlocks - 1)],
     LastBlockIndex = NumFullPieceBlocks,
     LastBlockSize = TorrentLength - (NumFullBlocks * BlockSize),
-    LastBlock = gen_block(LastBlockIndex, LastBlockSize),
+    LastBlock = gen_block(LastBlockIndex, LastBlockSize, BlockSize),
     FullBlocks ++ [LastBlock].
 
 %% Return minimum number of blocks of specified size to fill a piece of specified length.
