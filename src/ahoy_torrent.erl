@@ -89,23 +89,21 @@ handle_cast({peers, PeerAddresses}, State=#state{active_peers=ActivePeers}) ->
     {noreply, State2};
 handle_cast({write, PieceIndex, RawPiece}, State=#state{meta=Meta,
                                                         file_writer=FileWriter,
-                                                        torrent_download=TorrentDownload,
+                                                        piece_select=PieceSelect,
                                                         bitfield=Bitfield}) ->
     Pieces = Meta#metainfo.info#info.pieces,
     PieceLength = Meta#metainfo.info#info.piece_length,
-    Result = case valid_piece(Pieces, PieceIndex, RawPiece) of
+    Position = PieceIndex * PieceLength,
+    IsValid = valid_piece(Pieces, PieceIndex, RawPiece),
+    IsWritten = ahoy_file_writer:write(FileWriter, Position, RawPiece) =:= ok,
+    case IsValid andalso IsWritten of
         true ->
-            Position = PieceIndex * PieceLength,
-            % TODO: Verify that write went ok
-            ahoy_file_writer:write(FileWriter, Position, RawPiece),
             ahoy_bitfield:set(Bitfield, PieceIndex),
-            io:format("Piece ~p completed~n", [PieceIndex]),
-            ok;
+            io:format("Piece ~p completed~n", [PieceIndex]);
         false ->
-            io:format("Piece ~p is invalid~n", [PieceIndex]),
-            false
+            ahoy_piece_select:unreserve(PieceSelect, [PieceIndex]),
+            io:format("Piece ~p is invalid~n", [PieceIndex])
     end,
-    ahoy_torrent_download:completed_piece_write(TorrentDownload, PieceIndex, Result),
     {noreply, State};
 handle_cast(_Msg, State) ->
     {stop, "Unknown message", State}.

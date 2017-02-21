@@ -31,8 +31,7 @@ init([Path]) ->
 
 handle_call({write, Position, Bin}, _From, State=#state{file=File}) ->
     {ok, _} = file:position(File, {bof, Position}),
-    ok = file:write(File, Bin),
-    Reply = ok,
+    Reply = file:write(File, Bin),
     {reply, Reply, State};
 handle_call(_Request, _From, State) ->
     {reply, ok, State}.
