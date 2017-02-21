@@ -1,6 +1,6 @@
 %%% @doc The responsibility of this module is to write binary data at specified
 %%% position in a file.
--module(ahoy_file_writer).
+-module(ahoy_file).
 
 -behaviour(gen_server).
 

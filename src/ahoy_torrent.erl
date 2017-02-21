@@ -20,7 +20,7 @@
 -include_lib("ahoy_port.hrl").
 
 -record(state, {meta,
-                file_writer,
+                file,
                 bitfield,
                 piece_stat,
                 piece_select,
@@ -51,7 +51,7 @@ init([Path]) ->
     PieceFactory = ahoy_piece:factory(Length, PieceCount, PieceLength),
     DownloadFactory = ahoy_piece_download:factory(PieceFactory),
 
-    {ok, FileWriter} = ahoy_file_writer:start_link(Name),
+    {ok, File} = ahoy_file:start_link(Name),
     {ok, Bitfield} = ahoy_bitfield:start_link(PieceCount),
     {ok, PieceStat} = ahoy_piece_stat:start_link(PieceCount),
     {ok, PieceSelect} = ahoy_piece_select:start_link(Bitfield, PieceStat),
@@ -66,7 +66,7 @@ init([Path]) ->
     {ok, Tracker} = ahoy_tracker:start_link(self(), Meta, ?PORT),
     State = #state{
         meta = Meta,
-        file_writer = FileWriter,
+        file = File,
         bitfield = Bitfield,
         piece_stat = PieceStat,
         piece_select = PieceSelect,
@@ -88,14 +88,14 @@ handle_cast({peers, PeerAddresses}, State=#state{active_peers=ActivePeers}) ->
     State2 = State#state{active_peers=ActivePeers2},
     {noreply, State2};
 handle_cast({write, PieceIndex, RawPiece}, State=#state{meta=Meta,
-                                                        file_writer=FileWriter,
+                                                        file=File,
                                                         piece_select=PieceSelect,
                                                         bitfield=Bitfield}) ->
     Pieces = Meta#metainfo.info#info.pieces,
     PieceLength = Meta#metainfo.info#info.piece_length,
     Position = PieceIndex * PieceLength,
     IsValid = valid_piece(Pieces, PieceIndex, RawPiece),
-    IsWritten = ahoy_file_writer:write(FileWriter, Position, RawPiece) =:= ok,
+    IsWritten = ahoy_file:write(File, Position, RawPiece) =:= ok,
     case IsValid andalso IsWritten of
         true ->
             ahoy_bitfield:set(Bitfield, PieceIndex),
