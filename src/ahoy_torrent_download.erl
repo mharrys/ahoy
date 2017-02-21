@@ -12,8 +12,8 @@
          terminate/2,
          code_change/3]).
 
--define(UPDATE_INTERVAL, 250).
--define(NUM_DOWNLOADS, 5).
+-define(HEARTBEAT, 500).
+-define(NUM_DOWNLOADS, 15).
 
 -type torrent() :: pid().
 -type peer_select() :: pid().
@@ -43,17 +43,20 @@ init([Torrent, PeerSelect, PieceSelect, CreatePieceDl]) ->
         create_piece_dl = CreatePieceDl,
         downloads = []
     },
-    delay_update(),
+    heartbeat(),
     {ok, State}.
 
 handle_call(_Request, _From, State) ->
     {reply, {error, unknown_call}, State}.
 
+handle_cast(heartbeat, State) ->
+    heartbeat(),
+    update(),
+    {noreply, State};
 handle_cast(update, State=#state{downloads=Downloads,
                                  piece_select=PieceSelect,
                                  peer_select=PeerSelect,
                                  create_piece_dl=CreatePieceDl}) ->
-    delay_update(),
     N = length(Downloads),
     AvailableSlots = ?NUM_DOWNLOADS - N,
     PieceIndices = ahoy_piece_select:reserve(PieceSelect, AvailableSlots),
@@ -67,6 +70,7 @@ handle_cast({completed_download, PieceIndex, RawPiece}, State=#state{torrent=Tor
     ahoy_torrent:write_raw_piece(Torrent, PieceIndex, RawPiece),
     Downloads2 = lists:keydelete(PieceIndex, 1, Downloads),
     State2 = State#state{downloads=Downloads2},
+    update(),
     {noreply, State2};
 handle_cast(_Msg, State) ->
     {stop, "Unknown message", State}.
@@ -80,8 +84,11 @@ terminate(_Reason, _State) ->
 code_change(_OldVsn, State, _Extra) ->
     {ok, State}.
 
-delay_update() ->
-    timer:apply_after(?UPDATE_INTERVAL, gen_server, cast, [self(), update]).
+heartbeat() ->
+    timer:apply_after(?HEARTBEAT, gen_server, cast, [self(), heartbeat]).
+
+update() ->
+    gen_server:cast(self(), update).
 
 %% Create piece download processes from peer matches.
 create_downloads(PeerSelections, CreatePieceDl) ->
