@@ -71,7 +71,10 @@ find_selections([PieceIndex|PieceIndices], Activity, Selections, Unmatched) ->
             find_selections(PieceIndices, Activity, Selections, Unmatched2);
         Selection ->
             Selections2 = [Selection|Selections],
-            find_selections(PieceIndices, Activity, Selections2, Unmatched)
+            % do not select the same peer twice
+            {_, Peer} = Selection,
+            Activity2 = lists:keydelete(Peer, 1, Activity),
+            find_selections(PieceIndices, Activity2, Selections2, Unmatched)
     end.
 
 -spec find_selection(ahoy_piece:piece_index(), ahoy_peer_activity:activity()) -> peer_selection() | false.

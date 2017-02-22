@@ -12,11 +12,12 @@
          terminate/2,
          code_change/3]).
 
--define(HEARTBEAT, 500).
--define(NUM_DOWNLOADS, 15).
+-define(HEARTBEAT, 3600).
+-define(KILL_TIME, 10000).
+-define(NUM_DOWNLOADS, 50).
 
 -type torrent() :: pid().
--type download() :: {ahoy_piece:piece_index(), ahoy_piece:piece(), ahoy_peer:peer()}.
+-type download() :: {ahoy_piece:piece_index(), ahoy_piece_download:piece_dl(), ahoy_peer:peer()}.
 -type downloads() :: list(download()).
 
 -record(state, {torrent :: torrent(),
@@ -41,10 +42,20 @@ init([Torrent, DlSelect, CreatePieceDl]) ->
 handle_call(_Request, _From, State) ->
     {reply, {error, unknown_call}, State}.
 
-handle_cast(heartbeat, State) ->
+handle_cast(heartbeat, State=#state{downloads=Downloads, dl_select=DlSelect}) ->
     heartbeat(),
+    KillFold = fun({PieceIndex, PieceDl, _Peer}, Acc) ->
+        case ahoy_piece_download:time_since_request(PieceDl) >= ?KILL_TIME of
+            true ->
+                ahoy_download_select:unselect(DlSelect, PieceIndex),
+                stop_download(PieceIndex, Acc);
+            false ->
+                Acc
+        end
+    end,
+    State2 = lists:foldl(KillFold, State, Downloads),
     update(),
-    {noreply, State};
+    {noreply, State2};
 handle_cast(update, State=#state{downloads=Downloads,
                                  monitors=Monitors,
                                  dl_select=DlSelect,
@@ -57,10 +68,9 @@ handle_cast(update, State=#state{downloads=Downloads,
     Downloads2 = Downloads ++ create_downloads(PeerSelections, CreatePieceDl),
     State2 = State#state{downloads=Downloads2, monitors=Monitors2},
     {noreply, State2};
-handle_cast({completed, PieceIndex, RawPiece}, State=#state{torrent=Torrent, downloads=Downloads}) ->
+handle_cast({completed, PieceIndex, RawPiece}, State=#state{torrent=Torrent}) ->
     ahoy_torrent:write_raw_piece(Torrent, PieceIndex, RawPiece),
-    Downloads2 = lists:keydelete(PieceIndex, 1, Downloads),
-    State2 = State#state{downloads=Downloads2},
+    State2 = stop_download(PieceIndex, State),
     update(),
     {noreply, State2};
 handle_cast(_Msg, State) ->
@@ -107,6 +117,29 @@ create_downloads(PeerSelections, CreatePieceDl) ->
 create_download(PieceIndex, Peer, CreatePieceDl) ->
     {ok, PieceDownload} = CreatePieceDl(self(), PieceIndex, Peer),
     {PieceIndex, PieceDownload, Peer}.
+
+%% Stop download of piece.
+stop_download(PieceIndex, State=#state{downloads=Downloads, monitors=Monitors}) ->
+    case lists:keytake(PieceIndex, 1, Downloads) of
+        {value, {PieceIndex, PieceDl, Peer}, Downloads2} ->
+            ahoy_piece_download:stop(PieceDl),
+            Monitors2 = maybe_stop_monitor(Peer, Downloads2, Monitors),
+            State#state{downloads=Downloads2, monitors=Monitors2}
+    end.
+
+%% Stop monitoring if peer does not have any active downloads.
+maybe_stop_monitor(Peer, Downloads, Monitors) ->
+    IsPeerActive = lists:keymember(Peer, 3, Downloads),
+    stop_monitor(Peer, Monitors, IsPeerActive).
+
+stop_monitor(Peer, Monitors, false) ->
+    case lists:keytake(Peer, 1, Monitors) of
+        {value, {Peer, MonitorRef}, Monitors2} ->
+            demonitor(MonitorRef),
+            Monitors2
+    end;
+stop_monitor(_Peer, Monitors, true) ->
+    Monitors.
 
 %% Remove peer from downloads.
 -spec remove_peer(ahoy_peer:peer(), ahoy_download_select:ref(), downloads()) -> downloads().

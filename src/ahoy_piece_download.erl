@@ -3,6 +3,7 @@
 -export([factory/1,
          start_link/4,
          completed_block/3,
+         time_since_request/1,
          stop/1]).
 
 -export_type([piece_dl/0]).
@@ -16,6 +17,8 @@
          terminate/2,
          code_change/3]).
 
+-define(HEARTBEAT, 500).
+
 -type piece_dl() :: pid().
 -type torrent_download() :: pid().
 -type peer() :: pid().
@@ -24,7 +27,7 @@
                 piece_index :: ahoy_piece:piece_index(),
                 piece :: ahoy_piece:piece(),
                 peer :: peer(),
-                last_piece}).
+                time_waited = 0 :: non_neg_integer()}).
 
 %% @doc Factory function for creating a piece download.
 factory(PieceFactory) ->
@@ -41,6 +44,11 @@ start_link(TorrentDownload, PieceIndex, Piece, Peer) ->
 completed_block(Ref, PieceIndex, Block) ->
     gen_server:cast(Ref, {completed, PieceIndex, Block}).
 
+%% @doc Return in milliseconds the time since the last request was made.
+-spec time_since_request(piece_dl()) -> non_neg_integer().
+time_since_request(Ref) ->
+    gen_server:call(Ref, time_since_request).
+
 %% @doc Stop piece download.
 stop(Ref) ->
     gen_server:stop(Ref).
@@ -52,12 +60,21 @@ init([TorrentDownload, PieceIndex, Piece, Peer]) ->
         piece = Piece,
         peer = Peer
     },
+    heartbeat(),
     next_request(),
     {ok, State}.
 
+handle_call(time_since_request, _From, State=#state{time_waited=Request}) ->
+    Reply = Request,
+    {reply, Reply, State};
 handle_call(_Request, _From, State) ->
     {reply, {error, unknown_call}, State}.
 
+handle_cast(heartbeat, State=#state{time_waited=Waited}) ->
+    heartbeat(),
+    Waited2 = Waited + ?HEARTBEAT, % No need for exact measure
+    State2 = State#state{time_waited=Waited2},
+    {noreply, State2};
 handle_cast(request, State=#state{piece_index=PieceIndex, piece=Piece, peer=Peer}) ->
     case ahoy_piece:pop_missing_block(Piece) of
         {ok, {BlockOffset, BlockSize, _}} ->
@@ -65,7 +82,8 @@ handle_cast(request, State=#state{piece_index=PieceIndex, piece=Piece, peer=Peer
         false ->
             ok
     end,
-    {noreply, State};
+    State2 = State#state{time_waited=0},
+    {noreply, State2};
 handle_cast({completed, PieceIndex, Block}, State=#state{torrent_download=Download,
                                                          piece_index=PieceIndex,
                                                          piece=Piece}) ->
@@ -77,7 +95,8 @@ handle_cast({completed, PieceIndex, Block}, State=#state{torrent_download=Downlo
         false ->
             next_request()
     end,
-    {noreply, State};
+    State2 = State#state{time_waited=0},
+    {noreply, State2};
 handle_cast(_Msg, State) ->
     {stop, "Unknown message", State}.
 
@@ -89,6 +108,9 @@ terminate(_Reason, _State) ->
 
 code_change(_OldVsn, State, _Extra) ->
     {ok, State}.
+
+heartbeat() ->
+    timer:apply_after(?HEARTBEAT, gen_server, cast, [self(), heartbeat]).
 
 %% Proceed to next request.
 next_request() ->
