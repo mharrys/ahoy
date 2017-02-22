@@ -91,7 +91,9 @@ decode_message(<<0:32, T/binary>>) ->
 decode_message(<<Length:32, Payload:Length/binary, T/binary>>) ->
     {decode(Payload), T};
 decode_message(<<Length:32, T/binary>>) when Length > byte_size(T) ->
-    {incomplete, <<Length:32, T/binary>>}.
+    {incomplete, <<Length:32, T/binary>>};
+decode_message(<<T/binary>>) when byte_size(T) < 4 ->
+    {incomplete, <<T/binary>>}.
 
 decode(<<0:8>>) ->
     choke;
