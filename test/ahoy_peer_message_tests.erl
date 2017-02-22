@@ -105,7 +105,7 @@ decode_messages_no_payload_test() ->
 
 decode_messages_test() ->
     M = <<15:32, 7, 42:32, 1337:32, "foobarbaz">>,
-    ?assertError(function_clause, ahoy_peer_message:decode_messages(M)),
+    ?assertEqual({[{block, 42, 1337, <<"foobar">>}], <<"baz">>}, ahoy_peer_message:decode_messages(M)),
     M2 = <<1:32, 3, 13:32, 8, 1000:32, 2000:32, 3000:32>>,
     ?assertEqual(
         {[not_interested, {cancel, 1000, 2000, 3000}], <<>>},
