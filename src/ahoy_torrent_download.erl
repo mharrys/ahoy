@@ -1,7 +1,7 @@
 -module(ahoy_torrent_download).
 
 -export([start_link/4,
-         completed_piece_download/3]).
+         completed_piece/3]).
 
 -behaviour(gen_server).
 
@@ -31,9 +31,9 @@ start_link(Torrent, PeerSelect, PieceSelect, CreatePieceDl) ->
     gen_server:start_link(?MODULE, [Torrent, PeerSelect, PieceSelect, CreatePieceDl], []).
 
 %% @doc Notify that download of piece is completed.
--spec completed_piece_download(pid(), ahoy_piece:piece_index(), ahoy_piece:raw_piece()) -> ok.
-completed_piece_download(Pid, PieceIndex, RawPiece) ->
-    gen_server:cast(Pid, {completed_download, PieceIndex, RawPiece}).
+-spec completed_piece(pid(), ahoy_piece:piece_index(), ahoy_piece:raw_piece()) -> ok.
+completed_piece(Pid, PieceIndex, RawPiece) ->
+    gen_server:cast(Pid, {completed, PieceIndex, RawPiece}).
 
 init([Torrent, PeerSelect, PieceSelect, CreatePieceDl]) ->
     State = #state{
@@ -65,7 +65,7 @@ handle_cast(update, State=#state{downloads=Downloads,
     Downloads2 = Downloads ++ create_downloads(PeerSelections, CreatePieceDl),
     State2 = State#state{downloads=Downloads2},
     {noreply, State2};
-handle_cast({completed_download, PieceIndex, RawPiece}, State=#state{torrent=Torrent,
+handle_cast({completed, PieceIndex, RawPiece}, State=#state{torrent=Torrent,
                                                                      downloads=Downloads}) ->
     ahoy_torrent:write_raw_piece(Torrent, PieceIndex, RawPiece),
     Downloads2 = lists:keydelete(PieceIndex, 1, Downloads),

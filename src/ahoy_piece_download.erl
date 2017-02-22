@@ -68,7 +68,7 @@ handle_cast({completed, PieceIndex, Block}, State=#state{torrent_download=Downlo
     % check if we are done
     case ahoy_piece:raw_piece(Piece) of
         {ok, RawPiece} ->
-            ahoy_torrent_download:completed_piece_download(Download, PieceIndex, RawPiece);
+            ahoy_torrent_download:completed_piece(Download, PieceIndex, RawPiece);
         false ->
             next_request()
     end,
