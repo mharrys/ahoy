@@ -81,9 +81,10 @@ connecting(connected, State=#state{conn=Conn, info_hash=InfoHash}) ->
 connecting(_Event, State) ->
     {stop, "Expected connected", State}.
 
-handshake({handshake, InfoHash, <<_PeerId:20/binary>>}, State=#state{conn=Conn,
-                                                                     info_hash=InfoHash,
-                                                                     bitfield=Bitfield}) ->
+handshake({handshake, InfoHash, <<PeerId:20/binary>>}, State=#state{conn=Conn,
+                                                                    info_hash=InfoHash,
+                                                                    bitfield=Bitfield}) ->
+    io:format("Hello from ~p~n", [PeerId]),
     ahoy_peer_conn:send_bitfield(Conn, Bitfield),
     {next_state, exchange, State};
 handshake({handshake, _InfoHash, _PeerId}, State) ->
