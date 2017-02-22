@@ -61,7 +61,7 @@ factory(TorrentLength, PieceCount, PieceLength) ->
     fun (PieceIndex) ->
         Blocks2 = case PieceIndex =:= (PieceCount - 1) of
             true ->
-                gen_blocks_last(TorrentLength, PieceCount, PieceLength, ?BLOCK_SIZE);
+                gen_blocks_last(TorrentLength, PieceLength, ?BLOCK_SIZE);
             false ->
                 Blocks
         end,
@@ -153,8 +153,8 @@ gen_blocks(PieceLength, BlockSize) ->
     [gen_block(X, BlockSize) || X <- lists:seq(0, NumBlocks - 1)].
 
 %% Same as gen_blocks but for last piece.
-gen_blocks_last(TorrentLength, PieceCount, PieceLength, BlockSize) ->
-    LastPieceSize = TorrentLength - ((PieceCount - 1) * PieceLength),
+gen_blocks_last(TorrentLength, PieceLength, BlockSize) ->
+    LastPieceSize = TorrentLength rem PieceLength,
     % full blocks
     NumFullBlocks = LastPieceSize div BlockSize,
     FullBlocks = [gen_block(X, BlockSize) || X <- lists:seq(0, NumFullBlocks - 1)],
@@ -162,7 +162,11 @@ gen_blocks_last(TorrentLength, PieceCount, PieceLength, BlockSize) ->
     LastBlockIndex = NumFullBlocks,
     LastBlockSize = LastPieceSize - (NumFullBlocks * BlockSize),
     LastBlock = gen_block(LastBlockIndex, LastBlockSize, BlockSize),
-    FullBlocks ++ [LastBlock].
+    % check if there is a block of smaller size needed at the end of the piece
+    case LastBlockSize > 0 of
+        true  -> FullBlocks ++ [LastBlock];
+        false -> FullBlocks
+    end.
 
 %% Return minimum number of blocks of specified size to fill a piece of specified length.
 num_blocks(PieceLength, BlockSize) ->
