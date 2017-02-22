@@ -14,7 +14,8 @@
 %%% @end
 -module(ahoy_bitfield).
 
--export([start_link/1,
+-export([factory/1,
+         start_link/1,
          set/2,
          is_set/2,
          is_empty/1,
@@ -39,6 +40,12 @@
 -type raw_bitfield() :: binary().
 
 -record(state, {bitfield :: binary()}).
+
+%% @doc Factory function for creating a bitfield.
+factory(NumBits) ->
+    fun () ->
+        start_link(NumBits)
+    end.
 
 %% @doc Start linked bitfield process.
 start_link(NumBits) ->

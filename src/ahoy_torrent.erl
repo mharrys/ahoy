@@ -24,6 +24,7 @@
                 bitfield,
                 piece_stat,
                 piece_select,
+                peer_activity,
                 peer_select,
                 torrent_dl,
                 tracker_progress,
@@ -51,11 +52,13 @@ init([Path]) ->
     PieceLength = Meta#metainfo.info#info.piece_length,
     CreatePiece = ahoy_piece:factory(Length, PieceCount, PieceLength),
     CreatePieceDl = ahoy_piece_download:factory(CreatePiece),
+    CreateBitfield = ahoy_bitfield:factory(PieceCount),
     {ok, File} = ahoy_file:start_link(Name),
-    {ok, Bitfield} = ahoy_bitfield:start_link(PieceCount),
+    {ok, Bitfield} = CreateBitfield(),
     {ok, PieceStat} = ahoy_piece_stat:start_link(PieceCount),
     {ok, PieceSelect} = ahoy_piece_select:start_link(Bitfield, PieceStat),
-    {ok, PeerSelect} = ahoy_peer_select:start_link(),
+    {ok, PeerActivity} = ahoy_peer_activity:start_link(PieceStat, CreateBitfield),
+    {ok, PeerSelect} = ahoy_peer_select:start_link(PeerActivity),
     {ok, DlSelect} = ahoy_download_select:start_link(PeerSelect, PieceSelect),
     {ok, TorrentDl} = ahoy_torrent_download:start_link(self(), DlSelect, CreatePieceDl),
     {ok, PeerSup} = ahoy_peer_sup:start_link(),
@@ -67,6 +70,7 @@ init([Path]) ->
         bitfield = Bitfield,
         piece_stat = PieceStat,
         piece_select = PieceSelect,
+        peer_activity = PeerActivity,
         peer_select = PeerSelect,
         torrent_dl = TorrentDl,
         tracker_progress = Progress,
@@ -116,20 +120,10 @@ code_change(_OldVsn, State, _Extra) ->
     {ok, State}.
 
 %% Add started peer process to peer selection process.
-start_peer(Address, #state{meta=Meta,
-                           peer_select=Select,
-                           piece_stat=Stat,
-                           bitfield=Bitfield,
-                           peer_sup=PeerSup}) ->
-    PieceCount = Meta#metainfo.info#info.piece_count,
+start_peer(Address, #state{meta=Meta, peer_activity=Activity, bitfield=Bitfield, peer_sup=Sup}) ->
     InfoHash = Meta#metainfo.info_hash,
-    {ok, RemoteBitfield} = ahoy_bitfield:start_link(PieceCount),
-    case ahoy_peer_sup:start_child(PeerSup, Address, InfoHash, Stat, Bitfield, RemoteBitfield) of
-        {ok, Peer} ->
-            ahoy_peer_select:add_peer(Select, Peer);
-        _ ->
-            ok
-    end.
+    RawBitfield = ahoy_bitfield:raw_bitfield(Bitfield),
+    ahoy_peer_sup:start_child(Sup, Address, InfoHash, RawBitfield, Activity).
 
 %% Return true if RawPiece is equal to the piece hash located at PieceIndex.
 valid_piece(Pieces, PieceIndex, RawPiece) ->

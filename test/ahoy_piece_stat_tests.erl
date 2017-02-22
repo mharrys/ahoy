@@ -16,12 +16,12 @@ new_bitfield_test() ->
     Have = [1, 15, 8, 3, 0],
     [ahoy_bitfield:set(Pid2, X) || X <- Have],
     Bitfield = ahoy_bitfield:raw_bitfield(Pid2),
-    ahoy_piece_stat:new_bitfield(Pid, Bitfield),
+    ahoy_piece_stat:add_bitfield(Pid, Bitfield),
     Expected = expected_list(PieceCount, Have),
     Sorted = ahoy_piece_stat:sorted(Pid),
     ?assertEqual(Expected, Sorted),
     % one more count
-    ahoy_piece_stat:new_bitfield(Pid, Bitfield),
+    ahoy_piece_stat:add_bitfield(Pid, Bitfield),
     Expected2 = lists:map(fun inc_non_zero/1, Expected),
     Sorted2 = ahoy_piece_stat:sorted(Pid),
     ?assertEqual(Expected2, Sorted2).
@@ -30,20 +30,20 @@ new_piece_test() ->
     PieceCount = 16,
     {ok, Pid} = ahoy_piece_stat:start_link(PieceCount),
     Have = [0, 3, 5, 8, 15],
-    [ahoy_piece_stat:new_piece(Pid, X) || X <- Have],
+    [ahoy_piece_stat:add_piece_index(Pid, X) || X <- Have],
     % expecting all elements that are not in have to be first with 0 count,
     % and everything in have to be last with 1 count
     Expected = expected_list(PieceCount, Have),
     Sorted = ahoy_piece_stat:sorted(Pid),
     ?assertEqual(Expected, Sorted),
     % double count
-    [ahoy_piece_stat:new_piece(Pid, X) || X <- Have],
+    [ahoy_piece_stat:add_piece_index(Pid, X) || X <- Have],
     Expected2 = lists:map(fun inc_non_zero/1, Expected),
     Sorted2 = ahoy_piece_stat:sorted(Pid),
     ?assertEqual(Expected2, Sorted2),
     % one extra with 1 count
     Special = 9,
-    ahoy_piece_stat:new_piece(Pid, Special),
+    ahoy_piece_stat:add_piece_index(Pid, Special),
     {L1, L2} = lists:split(PieceCount - length(Have), Expected2),
     L3 = lists:keydelete(Special, 1, L1),
     Expected3 = L3 ++ [{Special, 1}] ++ L2,

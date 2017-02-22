@@ -5,15 +5,15 @@
 -behaviour(supervisor).
 
 -export([start_link/0,
-         start_child/6]).
+         start_child/5]).
 
 -export([init/1]).
 
 start_link() ->
     supervisor:start_link(?MODULE, []).
 
-start_child(Ref, Address, InfoHash, Stat, ClientBitfield, RemoteBitfield) ->
-    Args = [Address, InfoHash, Stat, ClientBitfield, RemoteBitfield],
+start_child(Ref, Address, InfoHash, Bitfield, PeerActivity) ->
+    Args = [Address, InfoHash, Bitfield, PeerActivity],
     supervisor:start_child(Ref, Args).
 
 init([]) ->

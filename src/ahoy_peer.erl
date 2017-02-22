@@ -9,11 +9,10 @@
 
 -behaviour(gen_fsm).
 
--export([start_link/5,
+-export([start_link/4,
          connected/1,
          peer_message/2,
-         download/5,
-         bitfield/1]).
+         download/5]).
 
 -export([init/1,
          handle_event/3,
@@ -29,7 +28,6 @@
 -type peer() :: pid().
 -type peer_conn() :: pid().
 -type info_hash() :: binary().
--type piece_stat() :: pid().
 -type download_key() :: {ahoy_piece:piece_index(), ahoy_piece:block_offset()}.
 -type download() :: {download_key(), ahoy_piece_download:piece_dl(), ahoy_piece:block_size()}.
 -type downloads() :: list(download()).
@@ -37,17 +35,15 @@
 
 -record(state, {conn :: peer_conn(),
                 info_hash :: info_hash(),
-                stat :: piece_stat(),
-                client_bitfield :: ahoy_bitfield:bitfield(),
-                remote_bitfield :: ahoy_bitfield:bitfield(),
-                remote_bitfield_recv = false :: boolean(),
+                bitfield :: ahoy_bitfield:raw_bitfield(),
+                peer_activity :: ahoy_peer_activity:ref(),
                 choke = true :: boolean(),
                 interested = false :: boolean(),
                 downloads = [] :: downloads(),
                 pending = [] :: pending()}).
 
-start_link(Address, InfoHash, Stat, ClientBitfield, RemoteBitfield) ->
-    gen_fsm:start_link(?MODULE, [Address, InfoHash, Stat, ClientBitfield, RemoteBitfield], []).
+start_link(Address, InfoHash, Bitfield, PeerActivity) ->
+    gen_fsm:start_link(?MODULE, [Address, InfoHash, Bitfield, PeerActivity], []).
 
 %% @doc Move from connecting to connected state with remote peer.
 -spec connected(peer()) -> ok.
@@ -64,20 +60,14 @@ download(Ref, From, PieceIndex, BlockOffset, BlockSize) ->
     Download = {{PieceIndex, BlockOffset}, From, BlockSize},
     gen_fsm:send_event(Ref, {download, Download}).
 
-%% @doc Return bitfield process. 
--spec bitfield(peer()) -> ahoy_bitfield:bitfield().
-bitfield(Ref) ->
-    gen_fsm:sync_send_all_state_event(Ref, bitfield).
-
-init([Address, InfoHash, Stat, ClientBitfield, RemoteBitfield]) ->
+init([Address, InfoHash, Bitfield, PeerActivity]) ->
     case ahoy_peer_conn:start_link(self(), Address) of
         {ok, Conn} ->
             State = #state{
                 conn = Conn,
                 info_hash = InfoHash,
-                stat = Stat,
-                client_bitfield = ClientBitfield,
-                remote_bitfield = RemoteBitfield
+                bitfield = Bitfield,
+                peer_activity = PeerActivity
             },
             {ok, connecting, State};
         _ ->
@@ -93,7 +83,7 @@ connecting(_Event, State) ->
 
 handshake({handshake, InfoHash, <<_PeerId:20/binary>>}, State=#state{conn=Conn,
                                                                      info_hash=InfoHash,
-                                                                     client_bitfield=Bitfield}) ->
+                                                                     bitfield=Bitfield}) ->
     ahoy_peer_conn:send_bitfield(Conn, Bitfield),
     {next_state, exchange, State};
 handshake({handshake, _InfoHash, _PeerId}, State) ->
@@ -114,19 +104,14 @@ exchange(unchoke, State=#state{conn=Conn, pending=Pending, downloads=Downloads})
     Downloads2 = send_pending(Conn, Downloads, Pending),
     State2 = State#state{choke=false, interested=false, pending=[], downloads=Downloads2},
     {next_state, exchange, State2};
-exchange({have, Index}, State=#state{remote_bitfield=RemoteBitfield, stat=Stat}) ->
+exchange({have, PieceIndex}, State=#state{peer_activity=PeerActivity}) ->
     % remote peer received new piece or lazy update of bitfield
-    ahoy_bitfield:set(RemoteBitfield, Index),
-    ahoy_piece_stat:new_piece(Stat, Index),
+    ahoy_peer_activity:new_piece_index(PeerActivity, self(), PieceIndex),
     {next_state, exchange, State};
-exchange({bitfield, Bitfield}, State=#state{remote_bitfield=RemoteBitfield,
-                                            remote_bitfield_recv=false,
-                                            stat=Stat}) ->
+exchange({bitfield, RawBitfield}, State=#state{peer_activity=PeerActivity}) ->
     % current bitfield of remote peer, should only be recieved once
-    ahoy_bitfield:replace(RemoteBitfield, Bitfield),
-    ahoy_piece_stat:new_bitfield(Stat, Bitfield),
-    State2 = State#state{remote_bitfield_recv=true},
-    {next_state, exchange, State2};
+    ahoy_peer_activity:new_bitfield(PeerActivity, self(), RawBitfield),
+    {next_state, exchange, State};
 exchange({block, PieceIndex, BlockOffset, BlockData}, State=#state{downloads=Downloads}) ->
     % download request completed, send back to process that requested it
     Downloads2 = complete_download(PieceIndex, BlockOffset, BlockData, Downloads),
@@ -160,9 +145,6 @@ exchange(_Event, State) ->
 handle_event(_Event, StateName, State) ->
     {next_state, StateName, State}.
 
-handle_sync_event(bitfield, _From, StateName, State=#state{remote_bitfield=Bitfield}) ->
-    Reply = Bitfield,
-    {reply, Reply, StateName, State};
 handle_sync_event(_Event, _From, StateName, State) ->
     Reply = ok,
     {reply, Reply, StateName, State}.

@@ -49,17 +49,11 @@ send_handshake(Ref, InfoHash) ->
     Msg = ahoy_peer_message:encode_handshake(InfoHash, ?PEER_ID),
     send(Ref, Msg).
 
-%% @doc Send bitfield iff at least one piece is downloaded.
--spec send_bitfield(peer_conn(), ahoy_bitfield:bitfield()) -> ok.
-send_bitfield(Ref, Bitfield) ->
-    case ahoy_bitfield:is_empty(Bitfield) of
-        true ->
-            ok;
-        false ->
-            RawBitfield = ahoy_bitfield:raw_bitfield(Bitfield),
-            Msg = ahoy_peer_message:encode_bitfield(RawBitfield),
-            send(Ref, Msg)
-    end.
+%% @doc Send bitfield.
+-spec send_bitfield(peer_conn(), ahoy_bitfield:raw_bitfield()) -> ok.
+send_bitfield(Ref, RawBitfield) ->
+    Msg = ahoy_peer_message:encode_bitfield(RawBitfield),
+    send(Ref, Msg).
 
 %% @doc Send keep alive message.
 -spec send_keep_alive(peer_conn()) -> ok.

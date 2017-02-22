@@ -2,7 +2,8 @@
 
 -export([factory/1,
          start_link/4,
-         completed_block/3]).
+         completed_block/3,
+         stop/1]).
 
 -export_type([piece_dl/0]).
 
@@ -39,6 +40,10 @@ start_link(TorrentDownload, PieceIndex, Piece, Peer) ->
 -spec completed_block(piece_dl(), ahoy_piece:piece_index(), ahoy_piece:block()) -> ok.
 completed_block(Ref, PieceIndex, Block) ->
     gen_server:cast(Ref, {completed, PieceIndex, Block}).
+
+%% @doc Stop piece download.
+stop(Ref) ->
+    gen_server:stop(Ref).
 
 init([TorrentDownload, PieceIndex, Piece, Peer]) ->
     State = #state{
