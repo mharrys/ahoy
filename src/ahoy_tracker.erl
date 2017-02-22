@@ -1,7 +1,6 @@
 -module(ahoy_tracker).
 
--export([start_link/3,
-         start_link/4]).
+-export([start_link/4]).
 
 -behaviour(gen_server).
 
@@ -13,30 +12,20 @@
          code_change/3]).
 
 -include_lib("ahoy_metainfo.hrl").
--include_lib("ahoy_tracker_progress.hrl").
 -include_lib("ahoy_tracker_response.hrl").
 
 -type torrent() :: pid().
 
 -record(state, {torrent :: torrent(),
+                progress :: ahoy_tracker_progress:tracker_progress(),
                 meta :: metainfo(),
-                port :: port_number(),
-                progress :: tracker_progress()}).
+                port :: port_number()}).
 
-start_link(Torrent, Meta, Port) ->
-    Info = Meta#metainfo.info,
-    Progress = #tracker_progress{
-        uploaded = 0,
-        downloaded = 0,
-        left = Info#info.length
-    },
-    gen_server:start_link(?MODULE, [Torrent, Meta, Port, Progress], []).
+start_link(Torrent, Progress, Meta, Port) ->
+    gen_server:start_link(?MODULE, [Torrent, Progress, Meta, Port], []).
 
-start_link(Torrent, Meta, Port, Progress) ->
-    gen_server:start_link(?MODULE, [Torrent, Meta, Port, Progress], []).
-
-init([Torrent, Meta, Port, Progress]) ->
-    State = #state{torrent=Torrent, meta=Meta, port=Port, progress=Progress},
+init([Torrent, Progress, Meta, Port]) ->
+    State = #state{torrent=Torrent, progress=Progress, meta=Meta, port=Port},
     gen_server:cast(self(), update),
     {ok, State}.
 
@@ -52,10 +41,10 @@ handle_cast(update, State=#state{torrent=Torrent, meta=Meta, port=Port,
     ahoy_torrent:update_tracker_peers(Torrent, PeerAddresses),
     {noreply, State};
 handle_cast(_Msg, State) ->
-    {noreply, State}.
+    {stop, "Unknown message", State}.
 
 handle_info(_Info, State) ->
-    {noreply, State}.
+    {stop, "Unknown message", State}.
 
 terminate(_Reason, _State) ->
     ok.

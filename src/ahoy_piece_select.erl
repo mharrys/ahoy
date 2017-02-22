@@ -20,14 +20,12 @@
          terminate/2,
          code_change/3]).
 
--type bitfield() :: pid().
 -type piece_stat() :: pid().
--type piece_index() :: non_neg_integer().
--type piece_indices() :: list(piece_index()).
+-type piece_indices() :: list(ahoy_piece:piece_index()).
 
--record(state, {bitfield :: bitfield(),
+-record(state, {bitfield :: ahoy_bitfield:bitfield(),
                 stat :: piece_stat(),
-                reserved :: list(piece_index())}).
+                reserved :: list(ahoy_piece:piece_index())}).
 
 start_link(Bitfield, PieceStat) ->
     gen_server:start_link(?MODULE, [Bitfield, PieceStat], []).
@@ -67,10 +65,10 @@ handle_cast({unreserve, PieceIndices}, State=#state{reserved=Reserved}) ->
     State2 = State#state{reserved=Reserved2},
     {noreply, State2};
 handle_cast(_Msg, State) ->
-    {noreply, State}.
+    {stop, "Unknown message", State}.
 
 handle_info(_Info, State) ->
-    {noreply, State}.
+    {stop, "Unknown message", State}.
 
 terminate(_Reason, _State) ->
     ok.
