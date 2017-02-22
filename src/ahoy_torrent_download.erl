@@ -76,7 +76,7 @@ handle_cast({completed, PieceIndex, RawPiece}, State=#state{torrent=Torrent}) ->
 handle_cast(_Msg, State) ->
     {stop, "Unknown message", State}.
 
-handle_info({'DOWN', _MonitorRef, process, Peer, _Reason}, State=#state{dl_select=DlSelect, 
+handle_info({'DOWN', _MonitorRef, process, Peer, _Reason}, State=#state{dl_select=DlSelect,
                                                                         downloads=Downloads,
                                                                         monitors=Monitors}) ->
     Downloads2 = remove_peer(Peer, DlSelect, Downloads),
