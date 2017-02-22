@@ -61,7 +61,7 @@ factory(TorrentLength, PieceCount, PieceLength) ->
     fun (PieceIndex) ->
         Blocks2 = case PieceIndex =:= (PieceCount - 1) of
             true ->
-                gen_blocks_last(TorrentLength, PieceLength, ?BLOCK_SIZE);
+                gen_blocks_last(TorrentLength, PieceCount, PieceLength, ?BLOCK_SIZE);
             false ->
                 Blocks
         end,
@@ -153,13 +153,14 @@ gen_blocks(PieceLength, BlockSize) ->
     [gen_block(X, BlockSize) || X <- lists:seq(0, NumBlocks - 1)].
 
 %% Same as gen_blocks but for last piece.
-gen_blocks_last(TorrentLength, PieceLength, BlockSize) ->
-    NumFullBlocks = TorrentLength div BlockSize,
-    NumBlocks = num_blocks(PieceLength, BlockSize),
-    NumFullPieceBlocks = NumFullBlocks rem NumBlocks,
-    FullBlocks = [gen_block(X, BlockSize) || X <- lists:seq(0, NumFullPieceBlocks - 1)],
-    LastBlockIndex = NumFullPieceBlocks,
-    LastBlockSize = TorrentLength - (NumFullBlocks * BlockSize),
+gen_blocks_last(TorrentLength, PieceCount, PieceLength, BlockSize) ->
+    LastPieceSize = TorrentLength - ((PieceCount - 1) * PieceLength),
+    % full blocks
+    NumFullBlocks = LastPieceSize div BlockSize,
+    FullBlocks = [gen_block(X, BlockSize) || X <- lists:seq(0, NumFullBlocks - 1)],
+    % last block
+    LastBlockIndex = NumFullBlocks,
+    LastBlockSize = LastPieceSize - (NumFullBlocks * BlockSize),
     LastBlock = gen_block(LastBlockIndex, LastBlockSize, BlockSize),
     FullBlocks ++ [LastBlock].
 
