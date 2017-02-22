@@ -1,6 +1,6 @@
 -module(ahoy_torrent_download).
 
--export([start_link/4,
+-export([start_link/3,
          completed_piece/3]).
 
 -behaviour(gen_server).
@@ -16,30 +16,26 @@
 -define(NUM_DOWNLOADS, 15).
 
 -type torrent() :: pid().
--type peer_select() :: pid().
--type piece_select() :: pid().
 -type download() :: {ahoy_piece:piece_index(), ahoy_piece:piece()}.
 -type downloads() :: list(download()).
 
 -record(state, {torrent :: torrent(),
-                peer_select :: peer_select(),
-                piece_select :: piece_select(),
+                dl_select :: ahoy_download_select:ref(),
                 create_piece_dl,
                 downloads :: downloads()}).
 
-start_link(Torrent, PeerSelect, PieceSelect, CreatePieceDl) ->
-    gen_server:start_link(?MODULE, [Torrent, PeerSelect, PieceSelect, CreatePieceDl], []).
+start_link(Torrent, DlSelect, CreatePieceDl) ->
+    gen_server:start_link(?MODULE, [Torrent, DlSelect, CreatePieceDl], []).
 
 %% @doc Notify that download of piece is completed.
 -spec completed_piece(pid(), ahoy_piece:piece_index(), ahoy_piece:raw_piece()) -> ok.
 completed_piece(Pid, PieceIndex, RawPiece) ->
     gen_server:cast(Pid, {completed, PieceIndex, RawPiece}).
 
-init([Torrent, PeerSelect, PieceSelect, CreatePieceDl]) ->
+init([Torrent, DlSelect, CreatePieceDl]) ->
     State = #state{
         torrent = Torrent,
-        peer_select = PeerSelect,
-        piece_select = PieceSelect,
+        dl_select = DlSelect,
         create_piece_dl = CreatePieceDl,
         downloads = []
     },
@@ -54,14 +50,11 @@ handle_cast(heartbeat, State) ->
     update(),
     {noreply, State};
 handle_cast(update, State=#state{downloads=Downloads,
-                                 piece_select=PieceSelect,
-                                 peer_select=PeerSelect,
+                                 dl_select=DlSelect,
                                  create_piece_dl=CreatePieceDl}) ->
     N = length(Downloads),
     AvailableSlots = ?NUM_DOWNLOADS - N,
-    PieceIndices = ahoy_piece_select:reserve(PieceSelect, AvailableSlots),
-    {PeerSelections, Remaining} = ahoy_peer_select:select(PeerSelect, PieceIndices),
-    ahoy_piece_select:unreserve(PieceSelect, Remaining),
+    PeerSelections = ahoy_download_select:select(DlSelect, AvailableSlots),
     Downloads2 = Downloads ++ create_downloads(PeerSelections, CreatePieceDl),
     State2 = State#state{downloads=Downloads2},
     {noreply, State2};
